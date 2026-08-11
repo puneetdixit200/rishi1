@@ -28,9 +28,11 @@ class SyncEventEnvelope(BaseModel):
 
     @field_validator("occurred_at", "recorded_at")
     @classmethod
-    def require_timezone(cls, value: datetime) -> datetime:
+    def normalize_timestamp(cls, value: datetime) -> datetime:
+        # Some local/test DB adapters strip tzinfo when reading a UTC timestamp.
+        # Treat such values as UTC and always normalize the envelope to UTC.
         if value.tzinfo is None:
-            raise ValueError("sync timestamps must be timezone-aware")
+            return value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
 
 
