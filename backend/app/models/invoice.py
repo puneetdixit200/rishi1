@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, CompanyScopeMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -59,11 +59,11 @@ def enum_column(enum_cls: type[enum.Enum], name: str):
     )
 
 
-class Invoice(TimestampMixin, Base):
+class Invoice(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "invoices"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    invoice_number: Mapped[str] = mapped_column(String(80), nullable=False, unique=True)
+    invoice_number: Mapped[str] = mapped_column(String(80), nullable=False)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False)
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
     sale_id: Mapped[int | None] = mapped_column(ForeignKey("sales.id"), nullable=True)
@@ -107,6 +107,8 @@ class Invoice(TimestampMixin, Base):
     status_history: Mapped[list[InvoiceStatusHistory]] = relationship(back_populates="invoice", cascade="all, delete-orphan")
 
     __table_args__ = (
+        UniqueConstraint("company_id", "invoice_number", name="uq_invoices_company_invoice_number"),
+        Index("ix_invoices_company_id", "company_id"),
         Index("ix_invoices_branch_id", "branch_id"),
         Index("ix_invoices_customer_id", "customer_id"),
         Index("ix_invoices_invoice_date", "invoice_date"),

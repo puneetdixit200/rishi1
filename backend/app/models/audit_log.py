@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Any
 from sqlalchemy import DateTime, ForeignKey, Index, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, CompanyScopeMixin
 
 if TYPE_CHECKING:
     from app.models.user import User
 
 
-class AuditLog(Base):
+class AuditLog(CompanyScopeMixin, Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -33,6 +33,7 @@ class AuditLog(Base):
     user: Mapped[User | None] = relationship(back_populates="audit_logs")
 
     __table_args__ = (
+        Index("ix_audit_logs_company_id", "company_id"),
         Index("ix_audit_logs_user_id_created_at", "user_id", "created_at"),
         Index("ix_audit_logs_entity", "entity_type", "entity_id"),
     )

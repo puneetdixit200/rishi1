@@ -81,7 +81,10 @@ def get_current_user(
 
 def require_roles(*allowed_roles: UserRole) -> Callable[[User], User]:
     def dependency(user: Annotated[User, Depends(get_current_user)]) -> User:
-        if user.role not in allowed_roles:
+        # P1 promotes the legacy global Admin to Super Admin. Until P2 replaces
+        # branch-only authorization with ScopeContext, Super Admin must preserve
+        # the old global-admin capabilities instead of breaking Retail workflows.
+        if user.role != UserRole.SUPER_ADMIN and user.role not in allowed_roles:
             allowed = ", ".join(role.value for role in allowed_roles)
             raise_forbidden(f"Requires one of these roles: {allowed}.")
         return user
@@ -118,7 +121,7 @@ def require_reporting_access(
 
 
 def get_branch_scope(user: Annotated[User, Depends(get_current_user)]) -> BranchScope:
-    if user.role in {UserRole.ADMIN, UserRole.ANALYST}:
+    if user.role in {UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ANALYST}:
         return BranchScope(all_branches=True, branch_ids=[])
 
     if user.branch_id is None:
@@ -128,7 +131,7 @@ def get_branch_scope(user: Annotated[User, Depends(get_current_user)]) -> Branch
 
 
 def ensure_branch_access(user: User, branch_id: int) -> None:
-    if user.role in {UserRole.ADMIN, UserRole.ANALYST}:
+    if user.role in {UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ANALYST}:
         return
 
     if user.branch_id != branch_id:

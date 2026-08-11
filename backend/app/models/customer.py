@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, CompanyScopeMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -33,12 +33,16 @@ class Customer(TimestampMixin, Base):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    company_id: Mapped[int | None] = mapped_column(ForeignKey("companies.id"), nullable=True)
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id"),
+        nullable=False,
+        server_default="1",
+    )
     branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(180), nullable=False)
-    phone: Mapped[str | None] = mapped_column(String(50), unique=True, nullable=True)
-    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True)
-    gstin: Mapped[str | None] = mapped_column(String(15), unique=True, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    gstin: Mapped[str | None] = mapped_column(String(15), nullable=True)
     billing_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     shipping_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     city: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -49,13 +53,16 @@ class Customer(TimestampMixin, Base):
     opening_balance: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
-    company: Mapped[Company | None] = relationship()
+    company: Mapped[Company] = relationship()
     branch: Mapped[Branch | None] = relationship()
     addresses: Mapped[list[CustomerAddress]] = relationship(back_populates="customer", cascade="all, delete-orphan")
     ledger_entries: Mapped[list[CustomerLedgerEntry]] = relationship(back_populates="customer", cascade="all, delete-orphan")
     payments: Mapped[list[CustomerPayment]] = relationship(back_populates="customer", cascade="all, delete-orphan")
 
     __table_args__ = (
+        UniqueConstraint("company_id", "phone", name="uq_customers_company_phone"),
+        UniqueConstraint("company_id", "email", name="uq_customers_company_email"),
+        UniqueConstraint("company_id", "gstin", name="uq_customers_company_gstin"),
         Index("ix_customers_company_id", "company_id"),
         Index("ix_customers_branch_id", "branch_id"),
         Index("ix_customers_name", "name"),
@@ -101,7 +108,7 @@ class CustomerAddress(TimestampMixin, Base):
     )
 
 
-class CustomerLedgerEntry(Base):
+class CustomerLedgerEntry(CompanyScopeMixin, Base):
     __tablename__ = "customer_ledger_entries"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -133,6 +140,7 @@ class CustomerLedgerEntry(Base):
     creator: Mapped[User | None] = relationship()
 
     __table_args__ = (
+        Index("ix_customer_ledger_entries_company_id", "company_id"),
         Index("ix_customer_ledger_entries_customer_id", "customer_id"),
         Index("ix_customer_ledger_entries_branch_id", "branch_id"),
         Index("ix_customer_ledger_entries_entry_type", "entry_type"),
@@ -143,7 +151,7 @@ class CustomerLedgerEntry(Base):
     )
 
 
-class CustomerPayment(TimestampMixin, Base):
+class CustomerPayment(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "customer_payments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -164,6 +172,7 @@ class CustomerPayment(TimestampMixin, Base):
     ledger_entry: Mapped[CustomerLedgerEntry | None] = relationship()
 
     __table_args__ = (
+        Index("ix_customer_payments_company_id", "company_id"),
         Index("ix_customer_payments_customer_id", "customer_id"),
         Index("ix_customer_payments_branch_id", "branch_id"),
         Index("ix_customer_payments_payment_datetime", "payment_datetime"),

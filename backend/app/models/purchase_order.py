@@ -5,10 +5,10 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Date, DateTime, Enum, ForeignKey, Index, Numeric, String
+from sqlalchemy import Date, DateTime, Enum, ForeignKey, Index, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, CompanyScopeMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -27,11 +27,11 @@ class PurchaseOrderStatus(str, enum.Enum):
     CANCELLED = "cancelled"
 
 
-class PurchaseOrder(TimestampMixin, Base):
+class PurchaseOrder(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "purchase_orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    po_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    po_number: Mapped[str] = mapped_column(String(50), nullable=False)
     supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False)
     status: Mapped[PurchaseOrderStatus] = mapped_column(
@@ -69,6 +69,8 @@ class PurchaseOrder(TimestampMixin, Base):
     )
 
     __table_args__ = (
+        UniqueConstraint("company_id", "po_number", name="uq_purchase_orders_company_po_number"),
+        Index("ix_purchase_orders_company_id", "company_id"),
         Index("ix_purchase_orders_supplier_id", "supplier_id"),
         Index("ix_purchase_orders_branch_id", "branch_id"),
         Index("ix_purchase_orders_status", "status"),

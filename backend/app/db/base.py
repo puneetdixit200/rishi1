@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import DateTime, ForeignKey, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 convention = {
@@ -27,4 +27,19 @@ class TimestampMixin:
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+
+
+class CompanyScopeMixin:
+    """Transitional P1 company scope.
+
+    The server default preserves the pre-P2 single-company write paths while the
+    schema is backfilled. P2 removes this compatibility assumption from service
+    writes by supplying scope explicitly and validates every foreign object.
+    """
+
+    company_id: Mapped[int] = mapped_column(
+        ForeignKey("companies.id"),
+        nullable=False,
+        server_default="1",
     )
