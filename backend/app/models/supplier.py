@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CompanyScopeMixin, TimestampMixin
@@ -30,4 +30,5 @@ class Supplier(CompanyScopeMixin, TimestampMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("company_id", "name", name="uq_suppliers_company_name"),
+        Index("ix_suppliers_company_id", "company_id"),
     )
