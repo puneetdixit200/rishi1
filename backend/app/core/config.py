@@ -1,7 +1,7 @@
 import enum
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
@@ -37,6 +37,18 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
 
+    # HC1 durable Local Hub synchronization. Secrets are configuration-only and never persisted.
+    sync_device_id: str | None = None
+    sync_device_name: str = "Local Business Hub"
+    sync_device_secret: SecretStr | None = None
+    sync_device_credential_ref: str = "env:SYNC_DEVICE_SECRET"
+    sync_batch_size: int = Field(default=50, ge=1, le=500)
+    sync_poll_interval_seconds: float = Field(default=5.0, ge=0.1, le=3600)
+    sync_max_attempts: int = Field(default=8, ge=1, le=100)
+    sync_base_retry_delay_seconds: float = Field(default=1.0, ge=0.1, le=3600)
+    sync_max_retry_delay_seconds: float = Field(default=300.0, ge=1.0, le=86400)
+    sync_retry_jitter_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -57,6 +69,11 @@ class Settings(BaseSettings):
         ):
             if cloud_url and database_target_identity(cloud_url) == local_target:
                 raise ValueError(f"{name} must not target the Local Hub database.")
+
+        if self.sync_base_retry_delay_seconds > self.sync_max_retry_delay_seconds:
+            raise ValueError(
+                "SYNC_BASE_RETRY_DELAY_SECONDS must not exceed SYNC_MAX_RETRY_DELAY_SECONDS."
+            )
         return self
 
     @property
