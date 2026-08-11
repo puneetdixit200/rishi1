@@ -77,8 +77,12 @@ def create_access_token(
     *,
     subject: int,
     role: str,
+    token_version: int = 1,
     expires_delta: timedelta | None = None,
 ) -> tuple[str, datetime]:
+    if token_version < 1:
+        raise ValueError("token_version must be at least 1")
+
     now = datetime.now(UTC)
     expires_at = now + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
@@ -86,6 +90,7 @@ def create_access_token(
     payload: dict[str, Any] = {
         "sub": str(subject),
         "role": role,
+        "ver": token_version,
         "iat": int(now.timestamp()),
         "exp": int(expires_at.timestamp()),
         "jti": secrets.token_urlsafe(16),
@@ -123,10 +128,21 @@ def decode_access_token(token: str) -> dict[str, Any]:
     if not payload.get("sub") or not payload.get("jti"):
         raise TokenError("Access token missing required claims")
 
+    try:
+        token_version = int(payload.get("ver", 0))
+    except (TypeError, ValueError) as exc:
+        raise TokenError("Invalid token version") from exc
+    if token_version < 1:
+        raise TokenError("Access token missing token version")
+    payload["ver"] = token_version
+
     return payload
 
 
 def invalidate_access_token(token_id: str, expires_at_timestamp: int) -> None:
+    # JTI invalidation remains as a fast single-token compatibility path. P2 also
+    # validates the persisted User.token_version so role/company changes and
+    # logout stay revoked across process restarts and multiple API instances.
     _prune_invalidated_tokens()
     _INVALIDATED_TOKEN_IDS[token_id] = expires_at_timestamp
 
