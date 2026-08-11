@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Date, DateTime, Enum, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, CompanyScopeMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -22,7 +22,7 @@ class ForecastType(str, enum.Enum):
     DEMAND = "demand"
 
 
-class Forecast(Base):
+class Forecast(CompanyScopeMixin, Base):
     __tablename__ = "forecasts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -57,6 +57,7 @@ class Forecast(Base):
     branch: Mapped[Branch | None] = relationship(back_populates="forecasts")
 
     __table_args__ = (
+        Index("ix_forecasts_company_id", "company_id"),
         Index("ix_forecasts_product_id", "product_id"),
         Index("ix_forecasts_category_id", "category_id"),
         Index("ix_forecasts_branch_id", "branch_id"),
