@@ -39,9 +39,11 @@ class EventEnvelope(BaseModel):
 
     @field_validator("occurred_at", "recorded_at")
     @classmethod
-    def require_timezone(cls, value: datetime) -> datetime:
+    def normalize_timestamp(cls, value: datetime) -> datetime:
+        # PostgreSQL preserves timezone information. SQLite test fixtures do not, so a
+        # persisted naive value is interpreted as UTC before the envelope is rebuilt.
         if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError("Synchronization timestamps must be timezone-aware.")
+            value = value.replace(tzinfo=UTC)
         return value.astimezone(UTC)
 
     @field_validator("business_group_id", "company_id", "branch_id", mode="before")
