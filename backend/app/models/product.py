@@ -113,7 +113,7 @@ class ProductUnit(TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
 
-class ProductPriceHistory(Base):
+class ProductPriceHistory(CompanyScopeMixin, Base):
     __tablename__ = "product_price_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -131,6 +131,7 @@ class ProductPriceHistory(Base):
     product: Mapped[Product] = relationship(back_populates="price_history")
 
     __table_args__ = (
+        Index("ix_product_price_history_company_id", "company_id"),
         Index("ix_product_price_history_product_id", "product_id"),
         Index("ix_product_price_history_changed_at", "changed_at"),
         CheckConstraint("new_unit_cost >= 0", name="product_price_history_unit_cost_non_negative"),
@@ -139,7 +140,7 @@ class ProductPriceHistory(Base):
     )
 
 
-class InventoryBatch(TimestampMixin, Base):
+class InventoryBatch(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "inventory_batches"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -155,6 +156,7 @@ class InventoryBatch(TimestampMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("product_id", "branch_id", "batch_number", name="uq_inventory_batches_product_branch_batch"),
+        Index("ix_inventory_batches_company_id", "company_id"),
         Index("ix_inventory_batches_product_id", "product_id"),
         Index("ix_inventory_batches_branch_id", "branch_id"),
         Index("ix_inventory_batches_expiry_date", "expiry_date"),
@@ -163,7 +165,7 @@ class InventoryBatch(TimestampMixin, Base):
     )
 
 
-class SerialNumber(TimestampMixin, Base):
+class SerialNumber(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "serial_numbers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -175,6 +177,7 @@ class SerialNumber(TimestampMixin, Base):
     product: Mapped[Product] = relationship(back_populates="serial_numbers")
 
     __table_args__ = (
+        Index("ix_serial_numbers_company_id", "company_id"),
         Index("ix_serial_numbers_product_id", "product_id"),
         Index("ix_serial_numbers_branch_id", "branch_id"),
         Index("ix_serial_numbers_status", "status"),

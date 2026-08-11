@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.routes.health import router as health_router
 from app.core.config import DeploymentMode, Settings, settings
+from app.db.scoping import ScopeViolationError
 
 
 def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
@@ -72,6 +73,20 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router, prefix=resolved_settings.api_prefix)
     if resolved_settings.deployment_mode == DeploymentMode.LOCAL_HUB:
         include_local_hub_routes(app, resolved_settings)
+
+    @app.exception_handler(ScopeViolationError)
+    async def scope_violation_handler(_request, _exc: ScopeViolationError) -> JSONResponse:
+        # Cross-company lookup/write failures intentionally do not reveal whether
+        # the referenced resource exists in another venture.
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": {
+                    "code": "not_found",
+                    "message": "Resource not found or unavailable.",
+                }
+            },
+        )
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(_request, exc: HTTPException) -> JSONResponse:

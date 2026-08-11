@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import NullPool
 
 from app.core.config import DeploymentMode, settings
+from app.db.scoping import ScopedSession
 
 engine_options: dict[str, object] = {"pool_pre_ping": True}
 if settings.deployment_mode == DeploymentMode.CLOUD_GATEWAY:
@@ -17,7 +18,12 @@ if settings.deployment_mode == DeploymentMode.CLOUD_GATEWAY:
     )
 
 engine = create_engine(settings.runtime_database_url, **engine_options)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    class_=ScopedSession,
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
 
 
 def get_db() -> Generator[Session, None, None]:
