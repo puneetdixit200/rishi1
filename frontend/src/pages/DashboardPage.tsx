@@ -1,6 +1,6 @@
 import { EmptyState, FilterBar, MetricCard, PageActions, DataTableShell } from "../components/ui";
+import type { UserRole } from "../auth/types";
 import { ROLE_LABELS } from "../navigation";
-import type { UserRole } from "../types";
 import { type DashboardRouteKey, PAGE_DEFINITIONS } from "./pageContent";
 
 type DashboardPageProps = {
@@ -10,7 +10,10 @@ type DashboardPageProps = {
 
 export function DashboardPage({ routeKey, role }: DashboardPageProps) {
   const page = PAGE_DEFINITIONS[routeKey];
-  const actions = page.actions(role);
+  // P2 preserves the existing Retail placeholder page action contract. P3
+  // replaces the portal shell and removes this temporary Super Admin mapping.
+  const actionRole = (role === "super_admin" ? "admin" : role) as Parameters<typeof page.actions>[0];
+  const actions = page.actions(actionRole);
 
   return (
     <section className="page-stack" aria-labelledby="page-title">
