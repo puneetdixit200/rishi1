@@ -13,7 +13,7 @@ from datetime import date
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-import seed as legacy
+from scripts import seed as legacy
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models import (
