@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING, Any
-
 from datetime import datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Index, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, CompanyScopeMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -21,7 +20,7 @@ class ChatSender(str, enum.Enum):
     SYSTEM = "system"
 
 
-class AIChatSession(TimestampMixin, Base):
+class AIChatSession(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "ai_chat_sessions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -36,7 +35,10 @@ class AIChatSession(TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    __table_args__ = (Index("ix_ai_chat_sessions_user_id", "user_id"),)
+    __table_args__ = (
+        Index("ix_ai_chat_sessions_company_id", "company_id"),
+        Index("ix_ai_chat_sessions_user_id", "user_id"),
+    )
 
 
 class AIChatMessage(Base):
