@@ -1,8 +1,9 @@
 import { LogOut, Menu, ShieldCheck, X } from "lucide-react";
 import { type PropsWithChildren, useMemo, useState } from "react";
 
+import type { AuthUser } from "../auth/types";
 import { ROLE_LABELS, getVisibleNavItems } from "../navigation";
-import type { AuthUser, RouteKey } from "../types";
+import type { RouteKey } from "../types";
 
 type AppLayoutProps = PropsWithChildren<{
   activeRoute: RouteKey;
