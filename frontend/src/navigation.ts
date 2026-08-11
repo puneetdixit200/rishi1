@@ -17,12 +17,16 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import type { RouteKey, UserRole } from "./types";
+import type { UserRole } from "./auth/types";
+import type { RouteKey } from "./types";
 
 export const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: "Super Admin",
   admin: "Admin",
   store_manager: "Store Manager",
   staff: "Staff",
+  order_taker: "Order Taker",
+  kitchen: "Kitchen",
   analyst: "Analyst",
 };
 
@@ -34,9 +38,9 @@ export type NavItem = {
   roles: UserRole[];
 };
 
-const allRoles: UserRole[] = ["admin", "store_manager", "staff", "analyst"];
-const operationalRoles: UserRole[] = ["admin", "store_manager", "staff"];
-const reportingRoles: UserRole[] = ["admin", "store_manager", "analyst"];
+const allRoles: UserRole[] = ["super_admin", "admin", "store_manager", "staff", "analyst"];
+const operationalRoles: UserRole[] = ["super_admin", "admin", "store_manager", "staff"];
+const reportingRoles: UserRole[] = ["super_admin", "admin", "store_manager", "analyst"];
 
 export const NAV_ITEMS: NavItem[] = [
   {
@@ -101,13 +105,13 @@ export const NAV_ITEMS: NavItem[] = [
     key: "categories",
     label: "Categories",
     icon: Tags,
-    roles: ["admin"],
+    roles: ["super_admin", "admin"],
   },
   {
     key: "branches",
     label: "Branches",
     icon: Store,
-    roles: ["admin"],
+    roles: ["super_admin", "admin"],
   },
   {
     key: "forecasting",
@@ -127,13 +131,13 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Power BI Reports",
     shortLabel: "Power BI",
     icon: Database,
-    roles: ["admin", "analyst"],
+    roles: ["super_admin", "admin", "analyst"],
   },
   {
     key: "settings",
     label: "Settings",
     icon: Settings,
-    roles: ["admin"],
+    roles: ["super_admin", "admin"],
   },
 ];
 
