@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import { ApiError, apiRequest, authTokenStorage, loginRequest } from "../api/client";
-import type { AuthUser } from "../types";
+import type { AuthUser } from "./types";
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 
