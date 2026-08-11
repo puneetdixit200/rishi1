@@ -1,4 +1,4 @@
-import type { LoginResponse } from "../auth/types";
+import { normalizeAuthUser, type LoginResponse, type ServerLoginResponse } from "../auth/types";
 import type { ApiErrorResponse } from "../types";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000/api";
@@ -56,11 +56,15 @@ export async function apiRequest<T>(
   return (await response.json()) as T;
 }
 
-export function loginRequest(email: string, password: string): Promise<LoginResponse> {
-  return apiRequest<LoginResponse>("/auth/login", {
+export async function loginRequest(email: string, password: string): Promise<LoginResponse> {
+  const response = await apiRequest<ServerLoginResponse>("/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+  return {
+    ...response,
+    user: normalizeAuthUser(response.user),
+  };
 }
 
 export const authTokenStorage = {
