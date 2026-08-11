@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin
+from app.db.base import Base, CompanyScopeMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.category import Category
@@ -25,11 +25,11 @@ class ProductItemType(str, enum.Enum):
     SERVICE = "service"
 
 
-class Product(TimestampMixin, Base):
+class Product(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "products"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    sku: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    sku: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"), nullable=False)
@@ -39,7 +39,7 @@ class Product(TimestampMixin, Base):
     selling_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     hsn_sac_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
     cess_rate_percent: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False, default=Decimal("0.00"))
-    primary_barcode: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    primary_barcode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     unit_of_measure: Mapped[str] = mapped_column(String(20), nullable=False, default="pcs")
     mrp: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     brand: Mapped[str | None] = mapped_column(String(120), nullable=True)
@@ -66,6 +66,9 @@ class Product(TimestampMixin, Base):
     serial_numbers: Mapped[list[SerialNumber]] = relationship(back_populates="product", cascade="all, delete-orphan")
 
     __table_args__ = (
+        UniqueConstraint("company_id", "sku", name="uq_products_company_sku"),
+        UniqueConstraint("company_id", "primary_barcode", name="uq_products_company_primary_barcode"),
+        Index("ix_products_company_id", "company_id"),
         Index("ix_products_category_id", "category_id"),
         Index("ix_products_supplier_id", "supplier_id"),
         Index("ix_products_gst_rate_id", "gst_rate_id"),
@@ -80,12 +83,12 @@ class Product(TimestampMixin, Base):
     )
 
 
-class ProductBarcode(TimestampMixin, Base):
+class ProductBarcode(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "product_barcodes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
-    barcode: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    barcode: Mapped[str] = mapped_column(String(64), nullable=False)
     barcode_type: Mapped[str] = mapped_column(String(30), nullable=False, default="internal")
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
@@ -93,6 +96,8 @@ class ProductBarcode(TimestampMixin, Base):
     product: Mapped[Product] = relationship(back_populates="barcodes")
 
     __table_args__ = (
+        UniqueConstraint("company_id", "barcode", name="uq_product_barcodes_company_barcode"),
+        Index("ix_product_barcodes_company_id", "company_id"),
         Index("ix_product_barcodes_product_id", "product_id"),
         Index("ix_product_barcodes_barcode", "barcode"),
     )
