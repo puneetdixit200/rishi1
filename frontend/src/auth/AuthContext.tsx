@@ -9,7 +9,7 @@ import {
 } from "react";
 
 import { ApiError, apiRequest, authTokenStorage, loginRequest } from "../api/client";
-import type { AuthUser } from "./types";
+import { normalizeAuthUser, type AuthUser, type ServerAuthUser } from "./types";
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 
@@ -44,9 +44,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
 
     try {
-      const currentUser = await apiRequest<AuthUser>("/auth/me", {}, storedToken);
+      const currentUser = await apiRequest<ServerAuthUser>("/auth/me", {}, storedToken);
       setToken(storedToken);
-      setUser(currentUser);
+      setUser(normalizeAuthUser(currentUser));
       setStatus("authenticated");
     } catch {
       clearAuth();
