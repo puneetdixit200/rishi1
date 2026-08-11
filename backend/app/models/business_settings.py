@@ -28,6 +28,11 @@ class TaxMode(str, enum.Enum):
     NON_GST = "non_gst"
 
 
+class BusinessType(str, enum.Enum):
+    RETAIL = "retail"
+    CAFE = "cafe"
+
+
 class InvoiceSequenceResetRule(str, enum.Enum):
     NEVER = "never"
     FISCAL_YEAR = "fiscal_year"
@@ -74,17 +79,47 @@ def enum_column(enum_cls: type[enum.Enum], name: str):
     )
 
 
+class BusinessGroup(TimestampMixin, Base):
+    __tablename__ = "business_groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    legal_name: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    pan: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    default_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR", server_default="INR")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+
 class Company(TimestampMixin, Base):
     __tablename__ = "companies"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    business_group_id: Mapped[int] = mapped_column(
+        ForeignKey("business_groups.id"),
+        nullable=False,
+        server_default="1",
+    )
+    business_type: Mapped[BusinessType] = mapped_column(
+        enum_column(BusinessType, "business_type"),
+        nullable=False,
+        default=BusinessType.RETAIL,
+        server_default=BusinessType.RETAIL.value,
+    )
+    slug: Mapped[str] = mapped_column(String(120), nullable=False, default="retail", server_default="retail")
     code: Mapped[str] = mapped_column(String(40), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
     legal_name: Mapped[str] = mapped_column(String(240), nullable=False)
     trade_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     pan: Mapped[str | None] = mapped_column(String(20), nullable=True)
     default_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
+    is_demo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+
+    __table_args__ = (
+        UniqueConstraint("business_group_id", "slug", name="uq_companies_group_slug"),
+        Index("ix_companies_business_group_id", "business_group_id"),
+        Index("ix_companies_business_type", "business_type"),
+    )
 
 
 class BusinessProfile(TimestampMixin, Base):
@@ -240,4 +275,3 @@ class FiscalPeriod(TimestampMixin, Base):
         Index("ix_fiscal_periods_company_id", "company_id"),
         Index("ix_fiscal_periods_dates", "start_date", "end_date"),
     )
-
