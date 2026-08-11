@@ -37,6 +37,15 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
 
+    # HC1 durable Local Hub synchronization settings. The device secret itself is never persisted.
+    sync_device_id: str | None = None
+    sync_device_id_file: str = ".sync-device-id"
+    sync_device_credential_env: str = "SYNC_DEVICE_SECRET"
+    sync_batch_size: int = Field(default=50, ge=1, le=1000)
+    sync_poll_interval_seconds: float = Field(default=5.0, gt=0)
+    sync_retry_base_delay_seconds: float = Field(default=2.0, gt=0)
+    sync_max_retry_delay_seconds: float = Field(default=300.0, gt=0)
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -48,6 +57,12 @@ class Settings(BaseSettings):
         if self.deployment_mode == DeploymentMode.CLOUD_GATEWAY and not self.cloud_runtime_database_url:
             raise ValueError(
                 "CLOUD_RUNTIME_DATABASE_URL is required when DEPLOYMENT_MODE=cloud_gateway."
+            )
+
+        if self.sync_max_retry_delay_seconds < self.sync_retry_base_delay_seconds:
+            raise ValueError(
+                "SYNC_MAX_RETRY_DELAY_SECONDS must be greater than or equal to "
+                "SYNC_RETRY_BASE_DELAY_SECONDS."
             )
 
         local_target = database_target_identity(self.local_runtime_database_url)
