@@ -3,9 +3,10 @@
 ## Status
 
 - Phase: P2
-- Status: Verification in progress
+- Status: Complete
 - Date: 2026-08-11
 - Base: P1-complete `main`
+- Merge commit: `82e7be25fdc7c963527f80f59d17c8d4be6beef3`
 - Local Alembic revision: `20260811_0009`
 - Cloud Alembic history: unchanged and separate
 
@@ -21,26 +22,45 @@
 - Added non-disclosing 404 handling for cross-company write/reference violations.
 - Made audit writes company-scope aware.
 - Extended frontend auth typing for business group, company, branch, permissions, and expanded roles without altering the legacy portal structure before P3.
+- Kept helper identity rows such as aliased creator/approver users out of the generic business-row loader filter while retaining scope on the authoritative business parent. This avoids alias-invalid SQL without weakening company isolation.
 
-## Required Security Tests
+## Verification Results
 
-P2 adds release-blocking tests for:
+GitHub Actions workflow `P2 Scope Enforcement Verification`, run `31528002756`, completed successfully against the final PR head `e5bf37a808af27a4f46a9db5fe44a629ee0e5f06`.
 
-- Cafe Admin receiving only Cafe company scope from `/auth/me`.
-- Existing access token rejection after persisted `token_version` changes.
-- Logout incrementing token version and invalidating the current token.
-- Deactivated company login failing closed.
-- Step-up authentication success/failure and persisted timestamp.
-- Cafe Admin inability to list/fetch Retail products, categories, suppliers, branches, inventory, customers, sales, invoices, purchase orders, forecasts, business profile, dashboard counts, exports, or AI sessions.
-- Retail Admin inability to discover Cafe rows.
-- Branch user inability to list a different same-company branch.
-- Cross-company category/supplier IDs failing without disclosing the Retail object.
-- Super Admin remaining the only global scope.
+Verified:
 
-## Verification Gate
+- PostgreSQL 16 startup and local migrations through `20260811_0009`: passed.
+- Local/cloud Alembic history separation: passed.
+- P2 security/isolation suite plus auth, scope constraints, HC1 sync, and deployment tests: **29 passed**.
+- Ownership-aware development reseed after P2: passed.
+- Complete backend regression: **133 passed**.
+- Backend compile check: passed.
+- Frontend dependency install: passed.
+- Frontend typecheck: passed.
+- Frontend production build: passed.
+- Inherited `P1 Multi-Venture Schema Verification` workflow on the same head: passed.
+- Inherited `HC1 Verification` workflow on the same head: passed.
 
-The P2 GitHub Actions workflow must pass PostgreSQL migration through `20260811_0009`, migration-history separation, P2 security tests, HC1 regression tests, the ownership-aware demo reseed, complete backend regression, backend compile, frontend typecheck, and frontend production build before P2 may merge.
+## Required Security Evidence
+
+Automated negative tests prove:
+
+- Cafe Admin receives only Cafe scope from `/auth/me`.
+- Persisted `token_version` changes revoke already-issued access tokens.
+- Logout persists revocation by incrementing the token version.
+- Deactivated company access fails closed.
+- Step-up authentication records its successful server-side timestamp and rejects a wrong password.
+- Cafe Admin cannot list/fetch Retail products, categories, suppliers, branches, inventory, customers, sales, invoices, purchase orders, forecasts, business profile, dashboard counts, exports, or AI sessions.
+- Retail Admin cannot discover Cafe business rows.
+- Branch users cannot list another same-company branch.
+- Cross-company foreign IDs fail without disclosing the existence of the other venture's object.
+- Super Admin remains the only global scope.
+
+## Exit Gate
+
+**P2 exit gate passed.** Backend company/branch authorization is now the hard isolation boundary. No Cafe portal or customer feature needs to trust frontend role hiding or client-supplied company IDs.
 
 ## P3 Boundary
 
-P2 deliberately does not build the separate Super Admin, Retail, and Cafe portal shells. P3 owns portal routing, venture labels/selectors, venture user management, and Cafe staff seed accounts after this backend isolation gate is proven.
+P3 now owns the separate Super Admin, Retail, and Cafe portal shells, safe venture/user management APIs, venture labels/selectors, and Cafe staff seed accounts. The temporary P2 frontend compatibility role bridge must be reduced or removed as the real portal router becomes authoritative.
