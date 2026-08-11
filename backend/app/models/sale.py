@@ -4,10 +4,10 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, CompanyScopeMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -15,11 +15,11 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-class Sale(Base):
+class Sale(CompanyScopeMixin, Base):
     __tablename__ = "sales"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    sale_number: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    sale_number: Mapped[str] = mapped_column(String(50), nullable=False)
     branch_id: Mapped[int] = mapped_column(ForeignKey("branches.id"), nullable=False)
     sale_datetime: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
@@ -38,6 +38,8 @@ class Sale(Base):
     items: Mapped[list[SaleItem]] = relationship(back_populates="sale", cascade="all, delete-orphan")
 
     __table_args__ = (
+        UniqueConstraint("company_id", "sale_number", name="uq_sales_company_sale_number"),
+        Index("ix_sales_company_id", "company_id"),
         Index("ix_sales_branch_id", "branch_id"),
         Index("ix_sales_sale_datetime", "sale_datetime"),
         Index("ix_sales_created_by", "created_by"),
