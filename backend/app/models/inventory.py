@@ -18,7 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base
+from app.db.base import Base, CompanyScopeMixin
 
 if TYPE_CHECKING:
     from app.models.branch import Branch
@@ -34,7 +34,7 @@ class StockMovementType(str, enum.Enum):
     TRANSFER = "transfer"
 
 
-class Inventory(Base):
+class Inventory(CompanyScopeMixin, Base):
     __tablename__ = "inventory"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -55,12 +55,13 @@ class Inventory(Base):
 
     __table_args__ = (
         UniqueConstraint("product_id", "branch_id", name="uq_inventory_product_branch"),
+        Index("ix_inventory_company_id", "company_id"),
         Index("ix_inventory_product_id", "product_id"),
         Index("ix_inventory_branch_id", "branch_id"),
     )
 
 
-class StockMovement(Base):
+class StockMovement(CompanyScopeMixin, Base):
     __tablename__ = "stock_movements"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -93,6 +94,7 @@ class StockMovement(Base):
     creator: Mapped[User | None] = relationship(back_populates="stock_movements")
 
     __table_args__ = (
+        Index("ix_stock_movements_company_id", "company_id"),
         Index("ix_stock_movements_product_id", "product_id"),
         Index("ix_stock_movements_branch_id", "branch_id"),
         Index("ix_stock_movements_created_at", "created_at"),
