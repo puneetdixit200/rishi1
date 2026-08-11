@@ -35,6 +35,10 @@ frontend/vite.config.js
 !.env.example
 !frontend/.env.example
 
+# Local sync identity and credentials
+.sync-device-id
+backend/.sync-device-id
+
 # Local data and backups
 *.sqlite
 *.sqlite3
