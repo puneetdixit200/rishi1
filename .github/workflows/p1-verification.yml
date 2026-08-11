@@ -85,12 +85,20 @@ jobs:
           tests/test_invoices.py
           tests/test_sync_foundation.py
           tests/test_deployment_modes.py
+      - name: Verify multi-venture development reseed
+        working-directory: backend
+        env:
+          DEPLOYMENT_MODE: local_hub
+          DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
+          LOCAL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
+          SECRET_KEY: github-actions-p1-only
+        run: python scripts/seed_multi_venture.py --reset
       - name: Run complete backend regression
         working-directory: backend
         run: python -m pytest -q --disable-warnings
       - name: Compile backend
         working-directory: backend
-        run: python -m compileall -q app server.py scripts/verify_p1_migration.py
+        run: python -m compileall -q app server.py scripts/verify_p1_migration.py scripts/seed_multi_venture.py
 
   frontend:
     runs-on: ubuntu-latest
