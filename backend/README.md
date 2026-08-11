@@ -7,7 +7,7 @@ The approved hybrid expansion supports two fail-closed profiles from this backen
 - Local Hub: `app.main:app`, with all existing operational routes and local PostgreSQL.
 - Cloud gateway: `server:app`, with only explicitly approved cloud routes and Supabase coordination storage.
 
-HC0 currently registers only `/api/health` in cloud mode. See [Hybrid Deployment Foundation](../docs/HYBRID_DEPLOYMENT_FOUNDATION.md).
+HC0 established the deployment boundary and HC1 added durable local synchronization. See [Hybrid Deployment Foundation](../docs/HYBRID_DEPLOYMENT_FOUNDATION.md).
 
 ## Run Locally
 
@@ -42,21 +42,27 @@ Independent Supabase coordination migrations, after setting `CLOUD_MIGRATION_DAT
 alembic -c alembic_cloud.ini upgrade head
 ```
 
-HC0 creates the cloud migration environment but intentionally includes no cloud business tables.
+The cloud migration history remains independent from the Local Hub Alembic chain.
 
 ## Seed Demo Data
 
-After running database migrations, load realistic local demo data:
+After P1 multi-venture migrations, use the ownership-aware seed entry point. It creates one Business
+Group, the Retail demo venture, a minimal Cafe venture/branch, and then the existing rich Retail demo
+data. It does not create public QR ordering or Cafe orders.
 
 ```powershell
-python -m scripts.seed
+python scripts/seed_multi_venture.py
 ```
 
-To replace existing development data:
+To replace existing development business data:
 
 ```powershell
-python -m scripts.seed --reset
+python scripts/seed_multi_venture.py --reset
 ```
+
+The older `python -m scripts.seed` generator is retained as the deterministic Retail data source, but
+the P1+ entry point above is required because it establishes company ownership before inserting
+company-scoped records.
 
 ## Auth Endpoints
 
@@ -109,7 +115,7 @@ GET  /api/sales/trends
 ## Dashboard Endpoints
 
 Dashboard endpoints calculate KPIs from database records and enforce branch scope through backend
-permissions.
+permissions. P2 strengthens this to shared company + branch ScopeContext enforcement.
 
 ```text
 GET /api/dashboard/overview
