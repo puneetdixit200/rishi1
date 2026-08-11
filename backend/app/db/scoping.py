@@ -47,6 +47,12 @@ class ScopedSession(Session):
     """SQLAlchemy Session that applies request scope when one has been bound."""
 
 
+# User is intentionally excluded from this generic business-row read filter.
+# Identity rows frequently appear as aliased creator/approver helper joins in
+# already-scoped business queries. Applying User.company_id as loader criteria to
+# those aliases can generate invalid SQL and is unnecessary for business-data
+# isolation. Authentication loads users explicitly, and P3 user-management APIs
+# apply dedicated user-scope predicates instead.
 COMPANY_MODELS = (
     Branch,
     BusinessProfile,
@@ -73,7 +79,6 @@ COMPANY_MODELS = (
     Supplier,
     AIChatSession,
     AuditLog,
-    User,
 )
 
 BRANCH_MODELS = (
