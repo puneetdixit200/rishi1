@@ -10,7 +10,7 @@ from app.core.security import hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
-from app.models import Branch, User, UserRole
+from app.models import Branch, BusinessGroup, BusinessType, Company, User, UserRole
 
 
 @pytest.fixture()
@@ -38,7 +38,26 @@ def db_session_factory() -> Generator[sessionmaker[Session], None, None]:
 @pytest.fixture()
 def seed_auth_data(db_session_factory: sessionmaker[Session]) -> None:
     with db_session_factory() as db:
+        group = BusinessGroup(
+            id=1,
+            name="Test Business Group",
+            legal_name="Test Business Group",
+        )
+        retail_company = Company(
+            id=1,
+            business_group_id=1,
+            business_type=BusinessType.RETAIL,
+            slug="retail",
+            code="TEST_RETAIL",
+            name="Test Retail",
+            legal_name="Test Retail Private Limited",
+            is_demo=True,
+        )
+        db.add_all([group, retail_company])
+        db.flush()
+
         central_branch = Branch(
+            company_id=retail_company.id,
             name="Central Market",
             address="14 MG Road",
             city="Bengaluru",
@@ -49,12 +68,16 @@ def seed_auth_data(db_session_factory: sessionmaker[Session]) -> None:
         db.add_all(
             [
                 User(
+                    business_group_id=group.id,
+                    company_id=retail_company.id,
                     name="Admin User",
                     email="admin@hybridretail.test",
                     password_hash=hash_password("RetailDemo@123"),
                     role=UserRole.ADMIN,
                 ),
                 User(
+                    business_group_id=group.id,
+                    company_id=retail_company.id,
                     name="Store Manager",
                     email="manager@hybridretail.test",
                     password_hash=hash_password("RetailDemo@123"),
@@ -62,6 +85,8 @@ def seed_auth_data(db_session_factory: sessionmaker[Session]) -> None:
                     branch_id=central_branch.id,
                 ),
                 User(
+                    business_group_id=group.id,
+                    company_id=retail_company.id,
                     name="Staff User",
                     email="staff@hybridretail.test",
                     password_hash=hash_password("RetailDemo@123"),
@@ -69,6 +94,8 @@ def seed_auth_data(db_session_factory: sessionmaker[Session]) -> None:
                     branch_id=central_branch.id,
                 ),
                 User(
+                    business_group_id=group.id,
+                    company_id=retail_company.id,
                     name="Analyst User",
                     email="analyst@hybridretail.test",
                     password_hash=hash_password("RetailDemo@123"),
