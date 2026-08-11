@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import (
     AIChatSession,
-    Branch,
     BusinessProfile,
     Customer,
     Forecast,
@@ -147,7 +146,7 @@ def test_cafe_admin_cannot_obtain_retail_operational_rows_or_counts(client, db_s
     assert {row["invoice_number"] for row in invoices.json()} == {"CAFE-INV-P2"}
     assert {row["po_number"] for row in purchase_orders.json()} == {"CAFE-PO-P2"}
     assert profile.json()["legal_name"] == "Cafe Profile"
-    assert overview.json()["sales"]["transaction_count"] == 1
+    assert overview.json()["kpis"]["sales"]["transaction_count"] == 1
 
 
 def test_exports_and_ai_sessions_do_not_cross_venture(client, db_session_factory: sessionmaker[Session]) -> None:
