@@ -1,5 +1,7 @@
 import type { AuthUser as LegacyAuthUser, UserRole as LegacyUserRole } from "../types";
 
+export type BusinessType = "retail" | "cafe";
+
 export type ServerUserRole =
   | LegacyUserRole
   | "super_admin"
@@ -10,6 +12,9 @@ export type ServerAuthUser = {
   id: number;
   business_group_id: number;
   company_id: number | null;
+  company_name: string | null;
+  company_slug: string | null;
+  company_business_type: BusinessType | null;
   name: string;
   email: string;
   role: ServerUserRole;
@@ -21,10 +26,13 @@ export type ServerAuthUser = {
 export type AuthUser = Omit<LegacyAuthUser, "role"> & {
   business_group_id: number;
   company_id: number | null;
+  company_name: string | null;
+  company_slug: string | null;
+  company_business_type: BusinessType | null;
   permissions: string[];
-  /** Real backend role. P3 uses this to select the correct portal shell. */
+  /** Authoritative backend role used by the P3 portal router. */
   server_role: ServerUserRole;
-  /** Temporary P2 role used only by the pre-P3 Retail navigation shell. */
+  /** Compatibility role used only inside the existing Retail operational pages. */
   role: LegacyUserRole;
 };
 
