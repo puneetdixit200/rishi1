@@ -9,13 +9,15 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.api.errors import raise_forbidden, raise_unauthorized
+from app.core.scope import ScopeContext, has_permission, scope_context_for_user
 from app.core.security import (
     TokenError,
     decode_access_token,
     is_access_token_invalidated,
 )
+from app.db.scoping import bind_scope
 from app.db.session import get_db
-from app.models import User, UserRole
+from app.models import BusinessGroup, Company, User, UserRole
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -23,6 +25,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 @dataclass(frozen=True)
 class AuthContext:
     user: User
+    scope: ScopeContext
     token: str
     token_id: str
     token_expires_at_timestamp: int
@@ -56,15 +59,50 @@ def get_auth_context(
     try:
         user_id = int(str(payload["sub"]))
         expires_at_timestamp = int(payload["exp"])
+        token_version = int(payload["ver"])
     except (KeyError, TypeError, ValueError):
         raise_unauthorized("Invalid access token.")
 
-    user = db.get(User, user_id)
+    # Authentication happens before request scope is bound, so these ownership
+    # records are loaded explicitly from the trusted server-side user row.
+    user = db.get(User, user_id, execution_options={"scope_bypass": True})
     if user is None or not user.is_active:
         raise_unauthorized("User account is inactive or no longer exists.")
+    if token_version != user.token_version:
+        raise_unauthorized("Access token has been revoked.")
+
+    group = db.get(
+        BusinessGroup,
+        user.business_group_id,
+        execution_options={"scope_bypass": True},
+    )
+    if group is None or not group.is_active:
+        raise_unauthorized("User account is inactive or no longer exists.")
+
+    if user.role == UserRole.SUPER_ADMIN:
+        if user.company_id is not None or user.branch_id is not None:
+            raise_unauthorized("Invalid account scope.")
+    else:
+        if user.company_id is None:
+            raise_unauthorized("Invalid account scope.")
+        company = db.get(
+            Company,
+            user.company_id,
+            execution_options={"scope_bypass": True},
+        )
+        if (
+            company is None
+            or not company.is_active
+            or company.business_group_id != user.business_group_id
+        ):
+            raise_unauthorized("User account is inactive or no longer exists.")
+
+    scope = scope_context_for_user(user)
+    bind_scope(db, scope)
 
     return AuthContext(
         user=user,
+        scope=scope,
         token=token,
         token_id=token_id,
         token_expires_at_timestamp=expires_at_timestamp,
@@ -79,15 +117,29 @@ def get_current_user(
     return context.user
 
 
+def get_scope_context(
+    context: Annotated[AuthContext, Depends(get_auth_context)],
+) -> ScopeContext:
+    return context.scope
+
+
 def require_roles(*allowed_roles: UserRole) -> Callable[[User], User]:
     def dependency(user: Annotated[User, Depends(get_current_user)]) -> User:
-        # P1 promotes the legacy global Admin to Super Admin. Until P2 replaces
-        # branch-only authorization with ScopeContext, Super Admin must preserve
-        # the old global-admin capabilities instead of breaking Retail workflows.
+        # Super Admin is the only global role. It may perform venture-admin tasks
+        # while scoped routes and services remain company-isolated for everyone else.
         if user.role != UserRole.SUPER_ADMIN and user.role not in allowed_roles:
             allowed = ", ".join(role.value for role in allowed_roles)
             raise_forbidden(f"Requires one of these roles: {allowed}.")
         return user
+
+    return dependency
+
+
+def require_permission(permission: str) -> Callable[[ScopeContext], ScopeContext]:
+    def dependency(scope: Annotated[ScopeContext, Depends(get_scope_context)]) -> ScopeContext:
+        if not has_permission(scope, permission):
+            raise_forbidden("You do not have permission to perform this action.")
+        return scope
 
     return dependency
 
@@ -120,19 +172,17 @@ def require_reporting_access(
     return user
 
 
-def get_branch_scope(user: Annotated[User, Depends(get_current_user)]) -> BranchScope:
-    if user.role in {UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ANALYST}:
-        return BranchScope(all_branches=True, branch_ids=[])
-
-    if user.branch_id is None:
-        raise_forbidden("This user does not have an assigned branch.")
-
-    return BranchScope(all_branches=False, branch_ids=[user.branch_id])
+def get_branch_scope(
+    scope: Annotated[ScopeContext, Depends(get_scope_context)],
+) -> BranchScope:
+    return BranchScope(
+        all_branches=scope.all_branches,
+        branch_ids=list(scope.branch_ids),
+    )
 
 
 def ensure_branch_access(user: User, branch_id: int) -> None:
     if user.role in {UserRole.SUPER_ADMIN, UserRole.ADMIN, UserRole.ANALYST}:
         return
-
     if user.branch_id != branch_id:
         raise_forbidden("You can only access data for your assigned branch.")
