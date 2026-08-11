@@ -54,6 +54,14 @@ from app.models.purchase_order import (
 )
 from app.models.sale import Sale, SaleItem
 from app.models.supplier import Supplier
+from app.models.sync import (
+    SyncAggregateVersion,
+    SyncCheckpoint,
+    SyncDeadLetter,
+    SyncDevice,
+    SyncInbox,
+    SyncOutbox,
+)
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -107,6 +115,12 @@ __all__ = [
     "StockMovement",
     "StockMovementType",
     "Supplier",
+    "SyncAggregateVersion",
+    "SyncCheckpoint",
+    "SyncDeadLetter",
+    "SyncDevice",
+    "SyncInbox",
+    "SyncOutbox",
     "TaxMode",
     "TaxRate",
     "User",
