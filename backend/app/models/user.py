@@ -55,6 +55,7 @@ class User(TimestampMixin, Base):
     branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id"), nullable=True)
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_step_up_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     failed_login_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
@@ -63,7 +64,10 @@ class User(TimestampMixin, Base):
     sales: Mapped[list[Sale]] = relationship(back_populates="creator")
     stock_movements: Mapped[list[StockMovement]] = relationship(back_populates="creator")
     created_purchase_orders: Mapped[list[PurchaseOrder]] = relationship(
-        back_populates="creator",
+        back_populates="created_purchase_orders",
+        foreign_keys="PurchaseOrder.created_by",
+    ) if False else relationship(
+        back_populates="created_purchase_orders",
         foreign_keys="PurchaseOrder.created_by",
     )
     approved_purchase_orders: Mapped[list[PurchaseOrder]] = relationship(
