@@ -1,7 +1,9 @@
 from app.models.audit_log import AuditLog
 from app.models.branch import Branch
 from app.models.business_settings import (
+    BusinessGroup,
     BusinessProfile,
+    BusinessType,
     Company,
     FiscalPeriod,
     GSTRegistration,
@@ -74,7 +76,9 @@ __all__ = [
     "AIChatSession",
     "AuditLog",
     "Branch",
+    "BusinessGroup",
     "BusinessProfile",
+    "BusinessType",
     "Category",
     "ChatSender",
     "Company",
