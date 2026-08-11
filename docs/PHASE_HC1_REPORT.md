@@ -3,9 +3,10 @@
 ## Status
 
 - Phase: HC1
-- Status: Verification in progress
+- Status: Complete
 - Date: 2026-08-11
 - Base: HC0 commit `70068c6`
+- Merge commit: `259577831590390659888cc0df807c24a06aee5d`
 - Local Alembic revision: `20260811_0007`
 - Cloud Alembic history: unchanged and separate
 
@@ -22,12 +23,13 @@ Implemented:
 - per-aggregate monotonic version checks with visible blocked/dead-letter states;
 - persisted inbound/outbound checkpoints;
 - bounded batch processing;
-- exponential retry with jitter, maximum delay, and Retry-After support;
+- exponential retry with jitter, maximum delay, and `Retry-After` support;
 - graceful worker shutdown and disposable process-memory design;
 - persistent device identity with credential-reference storage only;
 - development restart supervisor and documented production service policy;
 - audited dead-letter retry using the existing audit ledger;
-- release-blocking HC1 and HC0 regression tests.
+- release-blocking HC1 and HC0 regression tests;
+- GitHub Actions verification using PostgreSQL 16 plus frontend regression checks.
 
 ## Failure And Recovery Evidence
 
@@ -42,7 +44,7 @@ Automated tests cover:
 7. Dead-letter retry is durable and writes an audit record.
 8. Unknown future event schema versions remain durable and visible.
 9. Raw device secret values are not persisted.
-10. Retry delay is bounded and honors explicit Retry-After values.
+10. Retry delay is bounded and honors explicit `Retry-After` values.
 
 ## Queue And Checkpoint State In Tests
 
@@ -59,22 +61,28 @@ The HC1 tests use isolated database fixtures. Each test begins with no synchroni
 
 ## Verification
 
-GitHub Actions runs HC1 against PostgreSQL 16 and also performs frontend regression verification.
+GitHub Actions workflow `HC1 Verification`, run `31483717272`, completed successfully against the PR merge candidate containing current `main` plus the HC1 branch.
 
-The first verification run proved:
+Verified:
 
-- PostgreSQL service startup: passed;
+- PostgreSQL 16 service startup: passed;
 - local Alembic upgrade through `20260811_0007`: passed;
 - local migration head: `20260811_0007`;
-- independent cloud migration-head check: passed;
-- frontend dependency install, typecheck, and production build: passed;
-- HC1 + deployment targeted suite: 17 passed, 1 failed because workflow-level `LOCAL_DATABASE_URL` polluted an HC0 settings-isolation test.
+- cloud migration history remained separate and unchanged;
+- HC1 + deployment targeted suite: **18 passed**;
+- complete backend regression: **111 passed**;
+- backend `compileall`: passed;
+- frontend dependency install: passed;
+- frontend typecheck: passed;
+- frontend production build: passed.
 
-The failing test was a CI environment-scoping issue, not an application failure. The workflow was corrected so PostgreSQL connection variables are scoped only to Alembic steps. A clean rerun is required before HC1 is marked complete.
+An earlier workflow run exposed CI environment-variable leakage into an HC0 settings-isolation test. Commit `7be4863` corrected the workflow so PostgreSQL connection variables are scoped only to Alembic steps. The clean rerun then passed all gates.
 
 ## Exit Gate
 
-**Closed until the clean verification rerun passes.** No QR order may be accepted through Supabase while this report remains in verification status.
+**HC1 exit gate passed.** The local consumer now has automated evidence for idempotent crash/restart recovery and safe redelivery.
+
+This does **not** authorize Supabase QR order acceptance yet. QR acceptance remains blocked until HC2 completes the Supabase coordination schema, RLS/security boundary, limited cloud gateway, publication integrity, and its own exit gate.
 
 ## Known Deferred Work
 
