@@ -92,7 +92,7 @@ jobs:
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
           LOCAL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
           SECRET_KEY: github-actions-p1-only
-        run: python scripts/seed_multi_venture.py --reset
+        run: python -m scripts.seed_multi_venture --reset
       - name: Run complete backend regression
         working-directory: backend
         run: python -m pytest -q --disable-warnings
