@@ -333,14 +333,26 @@ def create_retail_business_settings(db: Session, company: Company, branches: lis
 def create_users(db: Session, group: BusinessGroup, retail: Company, branches: list[Branch]) -> dict[str, User]:
     password_hash = hash_password(legacy.DEMO_PASSWORD)
     users = {
-        "admin": User(
+        # Keep the deterministic Retail generator wired to a company-scoped
+        # Venture Admin. The separate owner exercises the new global role without
+        # weakening existing Retail service-level role guards before P2.
+        "owner": User(
             business_group_id=group.id,
             company_id=None,
+            branch_id=None,
+            name="Puneet Dixit",
+            email="owner@hybridretail.test",
+            password_hash=password_hash,
+            role=UserRole.SUPER_ADMIN,
+        ),
+        "admin": User(
+            business_group_id=group.id,
+            company_id=retail.id,
             branch_id=None,
             name="Aarav Sharma",
             email="admin@hybridretail.test",
             password_hash=password_hash,
-            role=UserRole.SUPER_ADMIN,
+            role=UserRole.ADMIN,
         ),
         "central_manager": User(
             business_group_id=group.id,
