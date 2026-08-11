@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.security import hash_password
 from app.db.base import Base
+from app.db.scoping import ScopedSession
 from app.db.session import get_db
 from app.main import create_app
 from app.models import Branch, BusinessGroup, BusinessType, Company, User, UserRole
@@ -22,6 +23,7 @@ def db_session_factory() -> Generator[sessionmaker[Session], None, None]:
     )
     Base.metadata.create_all(bind=engine)
     factory = sessionmaker(
+        class_=ScopedSession,
         autocommit=False,
         autoflush=False,
         bind=engine,
