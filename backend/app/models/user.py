@@ -64,10 +64,7 @@ class User(TimestampMixin, Base):
     sales: Mapped[list[Sale]] = relationship(back_populates="creator")
     stock_movements: Mapped[list[StockMovement]] = relationship(back_populates="creator")
     created_purchase_orders: Mapped[list[PurchaseOrder]] = relationship(
-        back_populates="created_purchase_orders",
-        foreign_keys="PurchaseOrder.created_by",
-    ) if False else relationship(
-        back_populates="created_purchase_orders",
+        back_populates="creator",
         foreign_keys="PurchaseOrder.created_by",
     )
     approved_purchase_orders: Mapped[list[PurchaseOrder]] = relationship(
