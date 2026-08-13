@@ -25,8 +25,8 @@ export type PublicCafeSession = {
   requestBill: () => Promise<PublicBillRequest>;
 };
 
-export async function openPublicCafeSession(qrToken: string): Promise<PublicCafeSession> {
-  const resolved = await resolvePublicQr(qrToken);
+export async function openPublicCafeSession(qrValue: string): Promise<PublicCafeSession> {
+  const resolved = await resolvePublicQr(qrValue);
   const sessionId = resolved.session_public_id;
   const access = resolved.guest_access;
   return {
@@ -42,4 +42,13 @@ export async function openPublicCafeSession(qrToken: string): Promise<PublicCafe
     submit: (retryKey, payload) => submitPublicOrder(sessionId, access, retryKey, payload),
     requestBill: () => requestPublicBill(sessionId, access),
   };
+}
+
+export async function openCurrentPublicCafeSession(): Promise<PublicCafeSession> {
+  const prefix = "/order/";
+  const path = window.location.pathname;
+  if (!path.startsWith(prefix) || path.length <= prefix.length) {
+    throw new Error("Public Cafe route is not available.");
+  }
+  return openPublicCafeSession(decodeURIComponent(path.slice(prefix.length)));
 }
