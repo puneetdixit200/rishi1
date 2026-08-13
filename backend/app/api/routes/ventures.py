@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_scope_context, require_roles
 from app.api.errors import raise_bad_request, raise_conflict, raise_not_found
-from app.core.scope import ScopeContext
+from app.core.scope import BRANCH_REQUIRED_ROLES, ScopeContext
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import Branch, Company, User, UserRole
@@ -36,6 +36,12 @@ def _validate_assignment(db: Session, *, role: UserRole, company_id: int | None,
     if company_id is None:
         raise_bad_request("A venture assignment is required for this role.")
     _load_company(db, company_id)
+
+    if role in BRANCH_REQUIRED_ROLES and branch_id is None:
+        raise_bad_request("This operational role requires a branch assignment.")
+    if role == UserRole.ADMIN and branch_id is not None:
+        raise_bad_request("Venture Admin is company-wide and cannot be assigned to one branch.")
+
     if branch_id is not None:
         branch = db.get(Branch, branch_id, execution_options={"scope_bypass": True})
         if branch is None or branch.company_id != company_id or not branch.is_active:
