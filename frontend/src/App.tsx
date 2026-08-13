@@ -17,7 +17,7 @@ import { POSPage } from "./pages/POSPage";
 import { PowerBIReportsPage } from "./pages/PowerBIReportsPage";
 import { PurchaseOrdersDashboardPage } from "./pages/PurchaseOrdersDashboardPage";
 import { SalesPage } from "./pages/SalesPage";
-import { SettingsPage } from "./pages/SettingsPage";
+import { SettingsWithTaxPage } from "./pages/SettingsWithTaxPage";
 import type { DashboardRouteKey } from "./pages/pageContent";
 import type { RouteKey } from "./types";
 
@@ -58,9 +58,7 @@ function App() {
   }, []);
 
   const availableRoute = useMemo(() => {
-    if (!user) {
-      return activeRoute;
-    }
+    if (!user) return activeRoute;
     return canAccessRoute(user.role, activeRoute) ? activeRoute : getDefaultRoute(user.role);
   }, [activeRoute, user]);
 
@@ -86,13 +84,8 @@ function App() {
     }
   }, [logout]);
 
-  if (status === "checking") {
-    return <LoadingState label="Checking session" />;
-  }
-
-  if (status === "unauthenticated" || !user) {
-    return <LoginPage />;
-  }
+  if (status === "checking") return <LoadingState label="Checking session" />;
+  if (status === "unauthenticated" || !user) return <LoginPage />;
 
   return (
     <AppLayout activeRoute={availableRoute} onLogout={handleLogout} onNavigate={navigate} user={user}>
@@ -120,7 +113,7 @@ function App() {
       ) : availableRoute === "power-bi" ? (
         <PowerBIReportsPage />
       ) : availableRoute === "settings" ? (
-        <SettingsPage />
+        <SettingsWithTaxPage />
       ) : (
         <DashboardPage role={user.role} routeKey={availableRoute as DashboardRouteKey} />
       )}
