@@ -32,12 +32,13 @@ class Settings(BaseSettings):
     local_database_url: str | None = None
     cloud_runtime_database_url: str | None = None
     cloud_migration_database_url: str | None = None
+    cloud_gateway_base_url: str | None = None
     secret_key: str = Field(default="change-me-in-development")
     access_token_expire_minutes: int = 60
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
 
-    # HC1 durable Local Hub synchronization. Secrets are configuration-only and never persisted.
+    # Durable Local Hub synchronization and HC2 cloud coordination.
     sync_device_id: str | None = None
     sync_device_name: str = "Local Business Hub"
     sync_device_secret: SecretStr | None = None
@@ -48,6 +49,8 @@ class Settings(BaseSettings):
     sync_base_retry_delay_seconds: float = Field(default=1.0, ge=0.1, le=3600)
     sync_max_retry_delay_seconds: float = Field(default=300.0, ge=1.0, le=86400)
     sync_retry_jitter_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
+    heartbeat_interval_seconds: int = Field(default=30, ge=5, le=3600)
+    writer_lease_seconds: int = Field(default=90, ge=15, le=86400)
 
     model_config = SettingsConfigDict(
         env_file=".env",
