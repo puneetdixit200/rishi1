@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import Branch, Inventory
+from app.models import (
+    Branch,
+    BusinessProfile,
+    GSTRegistration,
+    Inventory,
+    PrintTemplate,
+    PrintTemplateType,
+    TaxMode,
+    TaxRegistrationStatus,
+)
 
 
 def login(client, email: str = "admin@hybridretail.test") -> dict[str, str]:
@@ -20,6 +30,7 @@ def login(client, email: str = "admin@hybridretail.test") -> dict[str, str]:
 def central_branch_id(db_session_factory: sessionmaker[Session]) -> int:
     with db_session_factory() as db:
         branch = db.scalar(select(Branch).where(Branch.name == "Central Market"))
+        assert branch is not None
         return branch.id
 
 
@@ -40,13 +51,13 @@ def configure_invoice_foundation(client, branch_id: int) -> dict[str, int]:
             "state_code": "29",
             "pincode": "560001",
             "gstin": "29ABCDE1234F1Z5",
-            "default_tax_mode": "gst",
+            "default_tax_mode": "non_gst",
             "default_currency": "INR",
-            "terms_and_conditions": "Demo GST profile.",
+            "terms_and_conditions": "Demo Non-GST profile with GST-ready reference metadata.",
         },
         headers=headers,
     )
-    assert profile_response.status_code == 200
+    assert profile_response.status_code == 200, profile_response.text
     company_id = profile_response.json()["company_id"]
 
     tax_response = client.post(
@@ -55,7 +66,7 @@ def configure_invoice_foundation(client, branch_id: int) -> dict[str, int]:
             "name": "GST 18%",
             "rate_percent": "18.00",
             "cess_percent": "0.00",
-            "description": "General GST slab",
+            "description": "Internal GST-ready reference slab",
             "is_active": True,
         },
         headers=headers,
@@ -123,7 +134,7 @@ def configure_invoice_foundation(client, branch_id: int) -> dict[str, int]:
         json={
             "sku": "POS-SOAP-100",
             "name": "POS Bath Soap",
-            "description": "GST billing item",
+            "description": "GST-ready reference item billed Non-GST until activation",
             "category_id": category_response.json()["id"],
             "supplier_id": supplier_response.json()["id"],
             "gst_rate_id": tax_rate_id,
@@ -174,11 +185,60 @@ def configure_invoice_foundation(client, branch_id: int) -> dict[str, int]:
 
     return {
         "branch_id": branch_id,
+        "company_id": company_id,
         "product_id": product_id,
         "customer_id": customer_response.json()["id"],
         "cash_mode_id": cash_mode_id,
         "tax_rate_id": tax_rate_id,
     }
+
+
+def activate_gst_for_tests(
+    db_session_factory: sessionmaker[Session],
+    *,
+    company_id: int,
+    effective_from: date = date(2026, 5, 1),
+) -> None:
+    """Put an already configured test venture into an explicit activated GST state.
+
+    This bypasses the HTTP activation ceremony only inside billing-engine tests.
+    P4 activation authorization itself is tested separately in
+    test_gst_activation_controls.py.
+    """
+    with db_session_factory() as db:
+        profile = db.scalar(select(BusinessProfile).where(BusinessProfile.company_id == company_id))
+        assert profile is not None
+        profile.tax_registration_status = TaxRegistrationStatus.REGISTERED
+        profile.default_tax_mode = TaxMode.GST
+        profile.gst_effective_from = effective_from
+
+        registration = db.scalar(
+            select(GSTRegistration)
+            .where(GSTRegistration.company_id == company_id, GSTRegistration.is_primary.is_(True))
+            .order_by(GSTRegistration.id)
+        )
+        assert registration is not None
+        registration.is_active = True
+        registration.reference_only = False
+
+        template = db.scalar(
+            select(PrintTemplate).where(
+                PrintTemplate.company_id == company_id,
+                PrintTemplate.template_type == PrintTemplateType.A4_GST_INVOICE,
+            )
+        )
+        if template is None:
+            db.add(
+                PrintTemplate(
+                    company_id=company_id,
+                    name="GST Billing Test Template",
+                    template_type=PrintTemplateType.A4_GST_INVOICE,
+                    is_default=True,
+                    is_active=True,
+                    settings_json={"test_only": True},
+                )
+            )
+        db.commit()
 
 
 def add_inventory(db_session_factory: sessionmaker[Session], product_id: int, branch_id: int, quantity: str = "20.00") -> None:
