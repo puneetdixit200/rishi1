@@ -24,8 +24,8 @@ from app.services.public_cafe import (
     get_public_menu,
     list_public_orders,
     request_public_bill,
-    resolve_qr_for_guest,
 )
+from app.services.public_cafe_entry import resolve_qr_and_open_visit
 
 router = APIRouter(prefix="/public/cafe", tags=["public-cafe"])
 Database = Annotated[Session, Depends(get_db)]
@@ -88,7 +88,7 @@ def resolve_qr(
         identity=opaque_token,
         limit=PUBLIC_RESOLVE_LIMIT,
     )
-    return resolve_qr_for_guest(db, raw_qr=opaque_token)
+    return resolve_qr_and_open_visit(db, raw_qr=opaque_token)
 
 
 @router.get("/sessions/{public_id}/menu", response_model=PublicMenuRead)
@@ -125,18 +125,13 @@ def submit_order(
         access=guest_access,
         limit=PUBLIC_WRITE_LIMIT,
     )
-    result = create_public_order(
+    return create_public_order(
         db,
         session_public_id=public_id,
         raw_access=guest_access,
         idempotency_key=idempotency_key,
         payload=payload,
     )
-    if result.replayed:
-        # A retry is a successful replay of the original durable result, not a
-        # second creation. The response body makes that explicit.
-        return result
-    return result
 
 
 @router.get("/sessions/{public_id}/orders", response_model=PublicSessionOrdersRead)
