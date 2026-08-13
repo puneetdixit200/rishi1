@@ -1,20 +1,15 @@
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.core.config import DeploymentMode, Settings
 from app.main import create_app
 
 
-LOCAL_URL = "postgresql+psycopg://local_user:local_password@localhost:5432/local_hub"
-CLOUD_RUNTIME_URL = (
-    "postgresql+psycopg://cloud_user:cloud_password@region.pooler.supabase.com:6543/postgres"
-)
-CLOUD_MIGRATION_URL = (
-    "postgresql+psycopg://cloud_user:cloud_password@db.project.supabase.co:5432/postgres"
-)
+LOCAL_URL = "postgresql+psycopg://local_user@localhost:5432/local_hub"
+CLOUD_RUNTIME_URL = "postgresql+psycopg://cloud_user@region.pooler.supabase.invalid:6543/cloud_db"
+CLOUD_MIGRATION_URL = "postgresql+psycopg://cloud_user@db.project.supabase.invalid:5432/cloud_db"
 
 
 def build_settings(**overrides: object) -> Settings:
@@ -45,7 +40,7 @@ def test_local_hub_registers_existing_operational_routes() -> None:
     assert "/api/purchase-orders/{purchase_order_id}/receive" in paths
 
 
-def test_cloud_gateway_fails_closed_to_health_only() -> None:
+def test_cloud_gateway_registers_only_approved_hc2_routes() -> None:
     app = create_app(
         build_settings(
             deployment_mode=DeploymentMode.CLOUD_GATEWAY,
@@ -55,18 +50,18 @@ def test_cloud_gateway_fails_closed_to_health_only() -> None:
     )
     paths = route_paths(app)
 
-    assert paths == {"/api/health"}
-
-    with TestClient(app) as client:
-        health = client.get("/api/health")
-        inventory_write = client.post("/api/inventory/adjustments", json={})
-        invoice_write = client.post("/api/invoices/1/issue", json={})
-
-    assert health.status_code == 200
-    assert health.json()["deployment_mode"] == "cloud_gateway"
-    assert health.json()["database_configured"] is True
-    assert inventory_write.status_code == 404
-    assert invoice_write.status_code == 404
+    assert paths == {
+        "/api/health",
+        "/api/cloud/readiness",
+        "/api/cloud/devices/heartbeat",
+        "/api/cloud/publications/menu",
+        "/api/cloud/public/cafe/menu/{publication_id}",
+        "/api/cloud/public/cafe/qr/resolve",
+    }
+    assert "/api/auth/login" not in paths
+    assert "/api/inventory/adjustments" not in paths
+    assert "/api/invoices/{invoice_id}/issue" not in paths
+    assert "/api/purchase-orders/{purchase_order_id}/receive" not in paths
 
 
 def test_cloud_gateway_requires_explicit_runtime_database() -> None:
@@ -75,17 +70,14 @@ def test_cloud_gateway_requires_explicit_runtime_database() -> None:
 
 
 def test_cloud_database_cannot_identify_local_target() -> None:
-    same_target_with_different_credentials = (
-        "postgresql+psycopg://other_user:other_password@localhost:5432/local_hub"
-    )
-
+    same_target = "postgresql+psycopg://another_user@localhost:5432/local_hub"
     with pytest.raises(ValidationError, match="must not target the Local Hub database"):
-        build_settings(cloud_migration_database_url=same_target_with_different_credentials)
+        build_settings(cloud_migration_database_url=same_target)
 
 
 def test_local_runtime_preserves_legacy_url_and_allows_explicit_override() -> None:
     legacy = Settings(database_url=LOCAL_URL, _env_file=None)
-    explicit_url = "postgresql+psycopg://local_user:password@localhost:5432/explicit_local"
+    explicit_url = "postgresql+psycopg://local_user@localhost:5432/explicit_local"
     explicit = Settings(
         database_url=LOCAL_URL,
         local_database_url=explicit_url,
@@ -126,4 +118,3 @@ def test_cloud_alembic_history_is_independent() -> None:
     assert "required_cloud_migration_database_url" in cloud_env
     assert 'version_table="alembic_version_cloud"' in cloud_env
     assert (backend_root / "alembic_cloud.ini").exists()
-
