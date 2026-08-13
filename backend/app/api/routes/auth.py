@@ -15,10 +15,10 @@ from app.api.deps import (
     require_admin,
 )
 from app.api.errors import raise_unauthorized
-from app.core.scope import ScopeContext, scope_context_for_user
+from app.core.scope import BRANCH_REQUIRED_ROLES, ScopeContext, scope_context_for_user
 from app.core.security import create_access_token, invalidate_access_token, verify_password
 from app.db.session import get_db
-from app.models import BusinessGroup, Company, User, UserRole
+from app.models import Branch, BusinessGroup, Company, User, UserRole
 from app.schemas.auth import BranchScopeResponse, LoginRequest, MessageResponse, StepUpRequest, TokenResponse, UserRead
 from app.services.audit import write_audit_log
 
@@ -54,7 +54,17 @@ def _account_scope_is_active(db: Session, user: User) -> bool:
     if user.company_id is None:
         return False
     company = db.get(Company, user.company_id, execution_options={"scope_bypass": True})
-    return bool(company is not None and company.is_active and company.business_group_id == user.business_group_id)
+    if company is None or not company.is_active or company.business_group_id != user.business_group_id:
+        return False
+    if user.role in BRANCH_REQUIRED_ROLES and user.branch_id is None:
+        return False
+    if user.role == UserRole.ADMIN and user.branch_id is not None:
+        return False
+    if user.branch_id is not None:
+        branch = db.get(Branch, user.branch_id, execution_options={"scope_bypass": True})
+        if branch is None or not branch.is_active or branch.company_id != user.company_id:
+            return False
+    return True
 
 
 @router.post("/login", response_model=TokenResponse)
