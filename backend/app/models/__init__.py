@@ -5,6 +5,7 @@ from app.models.business_settings import (
     BusinessProfile,
     BusinessType,
     Company,
+    CustomerDetailsOnBill,
     FiscalPeriod,
     GSTRegistration,
     InvoiceSequence,
@@ -16,6 +17,7 @@ from app.models.business_settings import (
     PrintTemplateType,
     TaxMode,
     TaxRate,
+    TaxRegistrationStatus,
 )
 from app.models.category import Category
 from app.models.chat import AIChatMessage, AIChatSession, ChatSender
@@ -85,6 +87,7 @@ __all__ = [
     "Customer",
     "CustomerAddress",
     "CustomerAddressType",
+    "CustomerDetailsOnBill",
     "CustomerLedgerEntry",
     "CustomerLedgerEntryType",
     "CustomerPayment",
@@ -104,7 +107,6 @@ __all__ = [
     "InvoiceStatusHistory",
     "InvoiceTax",
     "InvoiceTaxType",
-    "InvoiceType",
     "PaymentMode",
     "PaymentModeType",
     "Product",
@@ -137,6 +139,7 @@ __all__ = [
     "SyncOutboxStatus",
     "TaxMode",
     "TaxRate",
+    "TaxRegistrationStatus",
     "User",
     "UserRole",
 ]
