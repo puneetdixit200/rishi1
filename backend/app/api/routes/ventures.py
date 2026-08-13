@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user, require_roles
+from app.api.deps import get_scope_context, require_roles
 from app.api.errors import raise_bad_request, raise_conflict, raise_not_found
+from app.core.scope import ScopeContext
 from app.core.security import hash_password
 from app.db.session import get_db
 from app.models import Branch, Company, User, UserRole
@@ -17,7 +18,7 @@ from app.services.audit import write_audit_log
 router = APIRouter(tags=["ventures"])
 
 SuperAdmin = Annotated[User, Depends(require_roles(UserRole.SUPER_ADMIN))]
-CurrentUser = Annotated[User, Depends(get_current_user)]
+CurrentScope = Annotated[ScopeContext, Depends(get_scope_context)]
 
 
 def _load_company(db: Session, company_id: int) -> Company:
@@ -42,12 +43,12 @@ def _validate_assignment(db: Session, *, role: UserRole, company_id: int | None,
 
 
 @router.get("/ventures/current", response_model=VentureRead | None)
-def current_venture(current_user: CurrentUser, db: Annotated[Session, Depends(get_db)]) -> Company | None:
-    if current_user.role == UserRole.SUPER_ADMIN:
+def current_venture(scope: CurrentScope, db: Annotated[Session, Depends(get_db)]) -> Company | None:
+    if scope.all_companies:
         return None
-    if current_user.company_id is None:
+    if scope.company_id is None:
         raise_not_found("Venture not found.")
-    company = db.get(Company, current_user.company_id)
+    company = db.get(Company, scope.company_id)
     if company is None:
         raise_not_found("Venture not found.")
     return company
@@ -55,7 +56,13 @@ def current_venture(current_user: CurrentUser, db: Annotated[Session, Depends(ge
 
 @router.get("/ventures", response_model=list[VentureRead])
 def list_ventures(_owner: SuperAdmin, db: Annotated[Session, Depends(get_db)]) -> list[Company]:
-    return list(db.scalars(select(Company).where(Company.is_active.is_(True)).order_by(Company.name)).all())
+    statement = (
+        select(Company)
+        .where(Company.is_active.is_(True))
+        .order_by(Company.name)
+        .execution_options(scope_bypass=True)
+    )
+    return list(db.scalars(statement).all())
 
 
 @router.get("/venture-users", response_model=list[VentureUserRead])
