@@ -68,6 +68,7 @@ jobs:
         run: >-
           python -m pytest -q --disable-warnings
           tests/test_venture_users.py
+          tests/test_venture_user_branch_rules.py
           tests/test_company_scope_auth.py
           tests/test_cross_venture_isolation.py
           tests/test_cross_venture_exports_ai.py
