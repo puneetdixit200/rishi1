@@ -55,7 +55,6 @@ def test_qr_secret_has_256_bits_and_only_hash_is_stored(
     public_reference, secret = raw_token.split(".", 1)
     assert public_reference == body["public_reference"]
     assert len(_decode_urlsafe(secret)) == 32
-    assert body["qr_payload"].endswith(raw_token)
 
     with db_session_factory() as db:
         stored = db.scalar(select(TableQRToken).where(TableQRToken.public_reference == public_reference))
@@ -85,8 +84,10 @@ def test_qr_secret_has_256_bits_and_only_hash_is_stored(
         json={"raw_token": raw_token, "public_base_url": "https://example.com/order"},
     )
     assert print_response.status_code == 200, print_response.text
-    assert print_response.json()["qr_payload"] == f"https://example.com/order/{raw_token}"
+    assert print_response.json()["public_reference"] == public_reference
     assert "token_hash" not in print_response.text
+    assert "raw_token" not in print_response.json()
+    assert "qr_payload" not in print_response.json()
 
 
 def test_rotation_revocation_and_expiry_fail_closed(
