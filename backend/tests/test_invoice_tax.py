@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, sessionmaker
 
-from tests.invoice_test_utils import login, setup_invoice_data
+from tests.invoice_test_utils import activate_gst_for_tests, login, setup_invoice_data
 
 
 def test_gst_invoice_uses_cgst_sgst_for_intrastate_supply(
@@ -8,6 +8,7 @@ def test_gst_invoice_uses_cgst_sgst_for_intrastate_supply(
     db_session_factory: sessionmaker[Session],
 ) -> None:
     ids = setup_invoice_data(client, db_session_factory)
+    activate_gst_for_tests(db_session_factory, company_id=ids["company_id"])
 
     response = client.post(
         "/api/pos/checkout",
@@ -39,6 +40,7 @@ def test_gst_invoice_uses_igst_for_interstate_supply(
     db_session_factory: sessionmaker[Session],
 ) -> None:
     ids = setup_invoice_data(client, db_session_factory)
+    activate_gst_for_tests(db_session_factory, company_id=ids["company_id"])
 
     response = client.post(
         "/api/pos/checkout",
