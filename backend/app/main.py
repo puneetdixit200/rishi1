@@ -53,6 +53,12 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
         app.include_router(router, prefix=app_settings.api_prefix)
 
 
+def include_cloud_gateway_routes(app: FastAPI, app_settings: Settings) -> None:
+    from app.api.routes.cloud_gateway import router as cloud_gateway_router
+
+    app.include_router(cloud_gateway_router, prefix=app_settings.api_prefix)
+
+
 def create_app(app_settings: Settings | None = None) -> FastAPI:
     resolved_settings = app_settings or settings
     docs_enabled = resolved_settings.resolved_api_docs_enabled
@@ -81,6 +87,8 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     app.include_router(health_router, prefix=resolved_settings.api_prefix)
     if resolved_settings.deployment_mode == DeploymentMode.LOCAL_HUB:
         include_local_hub_routes(app, resolved_settings)
+    else:
+        include_cloud_gateway_routes(app, resolved_settings)
 
     @app.exception_handler(ScopeViolationError)
     async def scope_violation_handler(_request, _exc: ScopeViolationError) -> JSONResponse:
