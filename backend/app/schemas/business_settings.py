@@ -38,7 +38,7 @@ class BusinessProfilePayload(BaseModel):
     state_code: str | None = Field(default=None, min_length=2, max_length=2)
     pincode: str | None = Field(default=None, max_length=12)
     gstin: str | None = Field(default=None, min_length=15, max_length=15)
-    default_tax_mode: TaxMode = TaxMode.GST
+    default_tax_mode: TaxMode = TaxMode.NON_GST
     default_currency: str = Field(default="INR", min_length=3, max_length=3)
     terms_and_conditions: str | None = None
 
@@ -144,7 +144,7 @@ class PaymentModeRead(PaymentModeBase):
 class InvoiceSequenceBase(BaseModel):
     company_id: int | None = None
     branch_id: int | None = None
-    invoice_type: InvoiceSequenceType = InvoiceSequenceType.GST_INVOICE
+    invoice_type: InvoiceSequenceType = InvoiceSequenceType.NON_GST_INVOICE
     fiscal_year: str = Field(min_length=1, max_length=20)
     prefix: str = Field(min_length=1, max_length=30)
     suffix: str | None = Field(default=None, max_length=30)
@@ -181,4 +181,3 @@ class InvoiceSequenceRead(InvoiceSequenceBase):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
-
