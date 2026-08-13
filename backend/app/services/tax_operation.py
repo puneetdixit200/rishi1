@@ -130,6 +130,7 @@ def get_tax_operation(db: Session, *, scope: ScopeContext) -> TaxOperationRead:
         customer_details_on_bill=profile.customer_details_on_bill,
         b2b_gst_enabled=profile.b2b_gst_enabled,
         include_customer_in_gst_reports=profile.include_customer_in_gst_reports,
+        gst_registration_id=registration.id if registration else None,
         gst_registration_configured=bool(registration and registration.gstin),
         gst_registration_active=bool(registration and registration.is_active and not registration.reference_only),
         gstin_masked=_masked_gstin(registration.gstin if registration else None),
@@ -163,9 +164,7 @@ def update_tax_operation_settings(
     profile.b2b_gst_enabled = payload.b2b_gst_enabled
     profile.include_customer_in_gst_reports = payload.include_customer_in_gst_reports
 
-    registrations = list(
-        db.scalars(select(GSTRegistration).where(GSTRegistration.company_id == company_id)).all()
-    )
+    registrations = list(db.scalars(select(GSTRegistration).where(GSTRegistration.company_id == company_id)).all())
     if payload.tax_registration_status == TaxRegistrationStatus.UNREGISTERED:
         profile.default_tax_mode = TaxMode.NON_GST
         profile.gst_effective_from = None
@@ -217,6 +216,8 @@ def activate_gst_operation(
         raise_bad_request("Explicit CA/GST review acknowledgement is required before activation.")
     if payload.confirmation.strip().upper() != "ACTIVATE GST":
         raise_bad_request('Type "ACTIVATE GST" to confirm this effective-dated change.')
+    if payload.effective_from < date.today():
+        raise_bad_request("GST activation cannot be backdated. Choose today or a future effective date.")
     if user.last_step_up_at is None:
         raise_forbidden("Recent step-up authentication is required.")
     step_up_at = user.last_step_up_at
