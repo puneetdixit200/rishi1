@@ -1,12 +1,12 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
 from app.api.errors import raise_bad_request
 from app.db.session import get_db
-from app.models import User
+from app.models import TaxMode, User
 from app.schemas.business_settings import (
     BusinessProfilePayload,
     BusinessProfileRead,
@@ -52,9 +52,18 @@ def update_business_profile(
     admin: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> BusinessProfileRead:
-    current = get_business_profile(db)
-    if payload.default_tax_mode != current.default_tax_mode:
-        raise_bad_request("Tax mode is controlled by the guarded tax-operation workflow.")
+    try:
+        current = get_business_profile(db)
+    except HTTPException as exc:
+        if exc.status_code != 404:
+            raise
+        # The legacy profile endpoint may still create the first business
+        # profile, but P4 requires that first operational state to be Non-GST.
+        if payload.default_tax_mode != TaxMode.NON_GST:
+            raise_bad_request("Initial business operation must start in Non-GST mode.")
+    else:
+        if payload.default_tax_mode != current.default_tax_mode:
+            raise_bad_request("Tax mode is controlled by the guarded tax-operation workflow.")
     return upsert_business_profile(db, payload=payload, user=admin, request=request)
 
 
