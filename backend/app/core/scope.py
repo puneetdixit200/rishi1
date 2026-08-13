@@ -79,6 +79,15 @@ ROLE_PERMISSIONS: dict[UserRole, frozenset[str]] = {
     UserRole.ANALYST: frozenset({"master.read", "reports.read", "ai.use"}),
 }
 
+BRANCH_REQUIRED_ROLES = frozenset(
+    {
+        UserRole.STORE_MANAGER,
+        UserRole.STAFF,
+        UserRole.ORDER_TAKER,
+        UserRole.KITCHEN,
+    }
+)
+
 
 def scope_context_for_user(
     user: User,
@@ -94,11 +103,14 @@ def scope_context_for_user(
         all_companies = False
         company_id = user.company_id
         if user.role in {UserRole.ADMIN, UserRole.ANALYST}:
-            branch_ids = ()
+            branch_ids = (user.branch_id,) if user.branch_id is not None else ()
         elif user.branch_id is not None:
             branch_ids = (user.branch_id,)
         else:
-            branch_ids = ()
+            # Invalid legacy operational assignments must never collapse into an
+            # all-branches scope. The impossible branch id deliberately produces
+            # an empty result set until authentication rejects the assignment.
+            branch_ids = (-1,) if user.role in BRANCH_REQUIRED_ROLES else ()
 
     return ScopeContext(
         user_id=user.id,
