@@ -63,7 +63,7 @@ jobs:
         run: >-
           python -m pytest -q --disable-warnings
           tests/test_hc2_cloud_gateway.py
-          tests/test_hc2_publication_builder.py
+          tests/test_hc2_cafe_projection.py
           tests/test_deployment_modes.py
           tests/test_company_scope_auth.py
           tests/test_cross_venture_isolation.py
