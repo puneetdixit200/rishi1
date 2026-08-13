@@ -68,6 +68,7 @@ jobs:
           tests/test_cafe_menu.py
           tests/test_cafe_tables.py
           tests/test_cafe_qr_security.py
+          tests/test_cafe_qr_render.py
           tests/test_table_sessions.py
           tests/test_cross_venture_isolation.py
           tests/test_company_scope_auth.py
