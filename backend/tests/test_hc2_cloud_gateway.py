@@ -7,13 +7,27 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, func, insert, select, text, update
+from sqlalchemy import create_engine, delete, func, insert, select, text, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.cloud_db.schema import (
+    cloud_idempotency_keys,
+    cloud_order_events,
+    cloud_order_items,
+    cloud_orders,
+    cloud_tombstones,
+    continuity_transactions,
+    dashboard_snapshots,
+    device_heartbeats,
     device_registrations,
+    inventory_availability_snapshots,
+    published_menu_categories,
+    published_menu_items,
     published_menu_versions,
     published_table_tokens,
+    sync_commands,
+    sync_receipts,
+    writer_leases,
 )
 from app.core.config import DeploymentMode, Settings
 from app.db.session import get_db
@@ -39,6 +53,33 @@ def cloud_factory() -> sessionmaker[Session]:
         yield factory
     finally:
         engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def clean_cloud_state(cloud_factory: sessionmaker[Session]) -> None:
+    child_to_parent = (
+        cloud_order_items,
+        cloud_order_events,
+        cloud_idempotency_keys,
+        sync_receipts,
+        sync_commands,
+        published_table_tokens,
+        published_menu_items,
+        published_menu_categories,
+        inventory_availability_snapshots,
+        dashboard_snapshots,
+        cloud_tombstones,
+        continuity_transactions,
+        cloud_orders,
+        published_menu_versions,
+        device_heartbeats,
+        writer_leases,
+        device_registrations,
+    )
+    with cloud_factory() as db:
+        for table in child_to_parent:
+            db.execute(delete(table))
+        db.commit()
 
 
 @pytest.fixture()
