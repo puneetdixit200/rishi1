@@ -17,6 +17,7 @@ class TaxOperationRead(BaseModel):
     customer_details_on_bill: CustomerDetailsOnBill
     b2b_gst_enabled: bool
     include_customer_in_gst_reports: bool
+    gst_registration_id: int | None
     gst_registration_configured: bool
     gst_registration_active: bool
     gstin_masked: str | None
