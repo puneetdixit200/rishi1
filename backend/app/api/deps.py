@@ -9,7 +9,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.api.errors import raise_forbidden, raise_unauthorized
-from app.core.scope import ScopeContext, has_permission, scope_context_for_user
+from app.core.scope import (
+    BRANCH_REQUIRED_ROLES,
+    ScopeContext,
+    has_permission,
+    scope_context_for_user,
+)
 from app.core.security import (
     TokenError,
     decode_access_token,
@@ -100,6 +105,8 @@ def get_auth_context(
     else:
         if user.company_id is None:
             raise_unauthorized("Invalid account scope.")
+        if user.role in BRANCH_REQUIRED_ROLES and user.branch_id is None:
+            raise_unauthorized("User account has an invalid operational assignment.")
         company = db.get(
             Company,
             user.company_id,
