@@ -85,11 +85,20 @@ export type CafeTableInput = {
 export type QRRotateResult = {
   table_code: string;
   table_display_name: string;
-  qr_payload: string;
   public_reference: string;
   token_prefix: string;
   expires_at: string | null;
+  qr_svg_data_uri: string | null;
   raw_token: string;
+};
+
+export type QRPrintData = {
+  table_code: string;
+  table_display_name: string;
+  public_reference: string;
+  token_prefix: string;
+  expires_at: string | null;
+  qr_svg_data_uri: string | null;
 };
 
 export type QRStatus = {
@@ -196,6 +205,14 @@ export function rotateTableQr(token: string, tableId: number): Promise<QRRotateR
   return apiRequest<QRRotateResult>(
     `/cafe/tables/${tableId}/qr/rotate`,
     { method: "POST", body: JSON.stringify({ expires_in_days: 365, public_base_url: "/order" }) },
+    token,
+  );
+}
+
+export function renderTableQr(token: string, tableId: number, rawToken: string): Promise<QRPrintData> {
+  return apiRequest<QRPrintData>(
+    `/cafe/tables/${tableId}/qr/render`,
+    { method: "POST", body: JSON.stringify({ raw_token: rawToken, public_base_url: "/order" }) },
     token,
   );
 }
