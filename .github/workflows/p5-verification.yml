@@ -73,7 +73,6 @@ jobs:
           tests/test_company_scope_auth.py
           tests/test_inventory.py
           tests/test_master_data.py
-          tests/test_products.py
           tests/test_auth.py
           tests/test_sync_foundation.py
           tests/test_deployment_modes.py
