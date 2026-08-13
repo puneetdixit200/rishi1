@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
+from app.api.errors import raise_bad_request
 from app.db.session import get_db
 from app.models import User
 from app.schemas.business_settings import (
@@ -51,6 +52,9 @@ def update_business_profile(
     admin: Annotated[User, Depends(require_admin)],
     db: Annotated[Session, Depends(get_db)],
 ) -> BusinessProfileRead:
+    current = get_business_profile(db)
+    if payload.default_tax_mode != current.default_tax_mode:
+        raise_bad_request("Tax mode is controlled by the guarded tax-operation workflow.")
     return upsert_business_profile(db, payload=payload, user=admin, request=request)
 
 
@@ -142,4 +146,3 @@ def edit_invoice_sequence(
     db: Annotated[Session, Depends(get_db)],
 ) -> InvoiceSequenceRead:
     return update_invoice_sequence(db, sequence_id=sequence_id, payload=payload, user=admin, request=request)
-
