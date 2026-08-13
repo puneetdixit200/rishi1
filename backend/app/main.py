@@ -24,11 +24,13 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.purchase_orders import router as purchase_orders_router
     from app.api.routes.sales import router as sales_router
     from app.api.routes.suppliers import router as suppliers_router
+    from app.api.routes.tax_operation import router as tax_operation_router
     from app.api.routes.ventures import router as ventures_router
 
     for router in (
         auth_router,
         ventures_router,
+        tax_operation_router,
         business_settings_router,
         categories_router,
         suppliers_router,
