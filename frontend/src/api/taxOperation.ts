@@ -13,6 +13,7 @@ export type TaxOperation = {
   customer_details_on_bill: CustomerDetailsOnBill;
   b2b_gst_enabled: boolean;
   include_customer_in_gst_reports: boolean;
+  gst_registration_id: number | null;
   gst_registration_configured: boolean;
   gst_registration_active: boolean;
   gstin_masked: string | null;
@@ -52,10 +53,7 @@ export function getTaxOperation(token: string): Promise<TaxOperation> {
   return apiRequest<TaxOperation>("/tax-operation", {}, token);
 }
 
-export function updateTaxOperationSettings(
-  token: string,
-  payload: TaxOperationSettingsPayload,
-): Promise<TaxOperation> {
+export function updateTaxOperationSettings(token: string, payload: TaxOperationSettingsPayload): Promise<TaxOperation> {
   return apiRequest<TaxOperation>(
     "/tax-operation/settings",
     { method: "PUT", body: JSON.stringify(payload) },
@@ -63,10 +61,7 @@ export function updateTaxOperationSettings(
   );
 }
 
-export function activateGstOperation(
-  token: string,
-  payload: GSTActivationPayload,
-): Promise<TaxOperation> {
+export function activateGstOperation(token: string, payload: GSTActivationPayload): Promise<TaxOperation> {
   return apiRequest<TaxOperation>(
     "/tax-operation/activate-gst",
     { method: "POST", body: JSON.stringify(payload) },
