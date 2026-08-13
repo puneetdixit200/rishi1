@@ -13,7 +13,7 @@ def test_operational_role_without_branch_is_rejected_at_creation(client, db_sess
         headers=owner_headers,
         json={
             "name": "Branchless Kitchen",
-            "email": "branchless.kitchen@example.test",
+            "email": "branchless.kitchen@example.com",
             "password": TEST_PASSWORD,
             "role": "kitchen",
             "company_id": 2,
@@ -31,7 +31,7 @@ def test_company_wide_admin_rejects_branch_assignment(client, db_session_factory
         headers=owner_headers,
         json={
             "name": "Branch Bound Admin",
-            "email": "branch.admin@example.test",
+            "email": "branch.admin@example.com",
             "password": TEST_PASSWORD,
             "role": "admin",
             "company_id": 2,
