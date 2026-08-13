@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
@@ -31,6 +31,7 @@ from app.services.invoices import (
     quote_invoice,
     search_pos_products,
 )
+from app.services.tax_operation import enforce_invoice_tax_policy
 
 router = APIRouter(tags=["invoices"])
 
@@ -70,7 +71,8 @@ def add_invoice(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> InvoiceRead:
-    return create_invoice(db, payload=payload, user=current_user, request=request)
+    authoritative = cast(InvoiceCreate, enforce_invoice_tax_policy(db, payload=payload))
+    return create_invoice(db, payload=authoritative, user=current_user, request=request)
 
 
 @router.get("/invoices/{invoice_id}", response_model=InvoiceRead)
@@ -132,7 +134,8 @@ def quote_pos_invoice(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> InvoiceQuoteRead:
-    return quote_invoice(db, payload=payload, user=current_user)
+    authoritative = cast(InvoiceCreate, enforce_invoice_tax_policy(db, payload=payload))
+    return quote_invoice(db, payload=authoritative, user=current_user)
 
 
 @router.post("/pos/checkout", response_model=InvoiceRead, status_code=status.HTTP_201_CREATED)
@@ -142,4 +145,5 @@ def checkout_pos_invoice(
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ) -> InvoiceRead:
-    return pos_checkout(db, payload=payload, user=current_user, request=request)
+    authoritative = cast(POSCheckoutRequest, enforce_invoice_tax_policy(db, payload=payload))
+    return pos_checkout(db, payload=authoritative, user=current_user, request=request)

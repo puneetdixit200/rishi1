@@ -43,7 +43,7 @@ class InvoicePaymentCreate(BaseModel):
 class InvoiceCreate(BaseModel):
     branch_id: int
     customer_id: int | None = None
-    invoice_type: InvoiceType = InvoiceType.GST
+    invoice_type: InvoiceType = InvoiceType.NON_GST
     place_of_supply_state: str | None = Field(default=None, max_length=100)
     place_of_supply_state_code: str | None = Field(default=None, min_length=2, max_length=2)
     invoice_date: datetime | None = None

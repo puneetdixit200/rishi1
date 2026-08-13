@@ -28,6 +28,17 @@ class TaxMode(str, enum.Enum):
     NON_GST = "non_gst"
 
 
+class TaxRegistrationStatus(str, enum.Enum):
+    UNREGISTERED = "unregistered"
+    REGISTERED = "registered"
+
+
+class CustomerDetailsOnBill(str, enum.Enum):
+    HIDDEN = "hidden"
+    BASIC = "basic"
+    FULL = "full"
+
+
 class BusinessType(str, enum.Enum):
     RETAIL = "retail"
     CAFE = "cafe"
@@ -137,10 +148,31 @@ class BusinessProfile(TimestampMixin, Base):
     state: Mapped[str | None] = mapped_column(String(100), nullable=True)
     state_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(12), nullable=True)
+    tax_registration_status: Mapped[TaxRegistrationStatus] = mapped_column(
+        enum_column(TaxRegistrationStatus, "tax_registration_status"),
+        nullable=False,
+        default=TaxRegistrationStatus.UNREGISTERED,
+        server_default=TaxRegistrationStatus.UNREGISTERED.value,
+    )
     default_tax_mode: Mapped[TaxMode] = mapped_column(
         enum_column(TaxMode, "tax_mode"),
         nullable=False,
-        default=TaxMode.GST,
+        default=TaxMode.NON_GST,
+        server_default=TaxMode.NON_GST.value,
+    )
+    gst_effective_from: Mapped[date | None] = mapped_column(Date, nullable=True)
+    customer_details_on_bill: Mapped[CustomerDetailsOnBill] = mapped_column(
+        enum_column(CustomerDetailsOnBill, "customer_details_on_bill"),
+        nullable=False,
+        default=CustomerDetailsOnBill.BASIC,
+        server_default=CustomerDetailsOnBill.BASIC.value,
+    )
+    b2b_gst_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    include_customer_in_gst_reports: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
     )
     default_currency: Mapped[str] = mapped_column(String(3), nullable=False, default="INR")
     terms_and_conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -162,7 +194,8 @@ class GSTRegistration(TimestampMixin, Base):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     pincode: Mapped[str | None] = mapped_column(String(12), nullable=True)
     is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
-    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    reference_only: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
 
     __table_args__ = (
         Index("ix_gst_registrations_company_id", "company_id"),

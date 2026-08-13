@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { activeVentureStorage, apiRequest } from "../api/client";
+import { getCombinedTurnover, type CombinedTurnover } from "../api/taxOperation";
 import type { AuthUser, BusinessType } from "../auth/types";
 import { PortalFrame } from "./PortalFrame";
 
@@ -34,16 +35,28 @@ type SuperAdminPortalProps = {
   onLogout: () => void;
 };
 
+function money(value: string): string {
+  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(Number(value) || 0);
+}
+
 export function SuperAdminPortal({ user, token, pathname, onNavigate, onLogout }: SuperAdminPortalProps) {
   const active = pathname.includes("/users") ? "users" : "ventures";
   const [ventures, setVentures] = useState<Venture[]>([]);
   const [users, setUsers] = useState<VentureUser[]>([]);
+  const [turnover, setTurnover] = useState<CombinedTurnover | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     activeVentureStorage.clear();
-    void apiRequest<Venture[]>("/ventures", {}, token)
-      .then(setVentures)
+    setError(null);
+    void Promise.all([
+      apiRequest<Venture[]>("/ventures", {}, token),
+      getCombinedTurnover(token),
+    ])
+      .then(([ventureRows, turnoverSummary]) => {
+        setVentures(ventureRows);
+        setTurnover(turnoverSummary);
+      })
       .catch((err: Error) => setError(err.message));
   }, [token]);
 
@@ -79,18 +92,42 @@ export function SuperAdminPortal({ user, token, pathname, onNavigate, onLogout }
         </div>
         {error ? <article className="panel"><p>{error}</p></article> : null}
         {active === "ventures" ? (
-          <section className="content-grid">
-            {ventures.map((venture) => (
-              <article className="panel" key={venture.id}>
-                <p className="eyebrow">{venture.business_type}</p>
-                <h3>{venture.name}</h3>
-                <p className="page-description">{venture.legal_name}</p>
-                <button className="logout-button" type="button" onClick={() => enterVenture(venture)}>
-                  Open {venture.business_type === "cafe" ? "Cafe" : "Retail"} portal
-                </button>
-              </article>
-            ))}
-          </section>
+          <>
+            {turnover ? (
+              <>
+                <section className="metric-grid" aria-label="Business group turnover review">
+                  {turnover.ventures.map((venture) => (
+                    <article className="metric-card blue" key={venture.company_id}>
+                      <p>{venture.company_name}</p>
+                      <strong>{money(venture.turnover)}</strong>
+                      <span>{venture.business_type} recorded turnover</span>
+                    </article>
+                  ))}
+                  <article className="metric-card amber">
+                    <p>Combined turnover</p>
+                    <strong>{money(turnover.combined_turnover)}</strong>
+                    <span>Business Group monitoring total</span>
+                  </article>
+                </section>
+                <div className="state-panel">
+                  <p>{turnover.review_notice}</p>
+                </div>
+              </>
+            ) : null}
+
+            <section className="content-grid">
+              {ventures.map((venture) => (
+                <article className="panel" key={venture.id}>
+                  <p className="eyebrow">{venture.business_type}</p>
+                  <h3>{venture.name}</h3>
+                  <p className="page-description">{venture.legal_name}</p>
+                  <button className="logout-button" type="button" onClick={() => enterVenture(venture)}>
+                    Open {venture.business_type === "cafe" ? "Cafe" : "Retail"} portal
+                  </button>
+                </article>
+              ))}
+            </section>
+          </>
         ) : (
           <article className="panel wide">
             <div className="panel-header"><h3>Business group users</h3></div>

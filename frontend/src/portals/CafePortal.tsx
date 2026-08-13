@@ -1,4 +1,5 @@
 import type { AuthUser } from "../auth/types";
+import { TaxOperationPanel } from "../components/TaxOperationPanel";
 import { allowedCafeSections } from "../portalRouting";
 import { PortalFrame } from "./PortalFrame";
 
@@ -45,21 +46,26 @@ export function CafePortal({ user, pathname, onNavigate, onLogout }: CafePortalP
             <p className="eyebrow">Cafe workspace</p>
             <h2>{LABELS[active]}</h2>
             <p className="page-description">
-              This P3 shell is isolated to the Cafe venture. Operational menu, table and QR data arrives in P5.
+              Cafe data is isolated to this venture. Menu, table and secure QR operational foundations arrive in P5.
             </p>
           </div>
         </div>
-        <article className="panel wide">
-          <div className="panel-header">
-            <div>
-              <p className="eyebrow">Access scope</p>
-              <h3>{user.company_name ?? "Selected Cafe venture"}</h3>
+
+        {active === "settings" ? (
+          <TaxOperationPanel />
+        ) : (
+          <article className="panel wide">
+            <div className="panel-header">
+              <div>
+                <p className="eyebrow">Access scope</p>
+                <h3>{user.company_name ?? "Selected Cafe venture"}</h3>
+              </div>
             </div>
-          </div>
-          <p className="page-description">
-            Role: {user.server_role}. Company and branch authorization is enforced by the backend P2 scope boundary.
-          </p>
-        </article>
+            <p className="page-description">
+              Role: {user.server_role}. Company and branch authorization is enforced by the backend P2 scope boundary.
+            </p>
+          </article>
+        )}
       </section>
     </PortalFrame>
   );
