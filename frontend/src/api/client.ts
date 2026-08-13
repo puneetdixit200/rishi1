@@ -31,6 +31,22 @@ async function parseApiError(response: Response): Promise<ApiError> {
   return new ApiError(message, response.status, code);
 }
 
+export const activeVentureStorage = {
+  key: "hybrid_retail_active_venture_id",
+  get(): number | null {
+    const raw = window.sessionStorage.getItem(this.key);
+    if (!raw) return null;
+    const value = Number(raw);
+    return Number.isInteger(value) && value > 0 ? value : null;
+  },
+  set(companyId: number): void {
+    window.sessionStorage.setItem(this.key, String(companyId));
+  },
+  clear(): void {
+    window.sessionStorage.removeItem(this.key);
+  },
+};
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -42,6 +58,12 @@ export async function apiRequest<T>(
   }
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
+    if (!headers.has("X-Venture-Id")) {
+      const activeVentureId = activeVentureStorage.get();
+      if (activeVentureId !== null) {
+        headers.set("X-Venture-Id", String(activeVentureId));
+      }
+    }
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {

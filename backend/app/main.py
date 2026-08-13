@@ -24,9 +24,11 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.purchase_orders import router as purchase_orders_router
     from app.api.routes.sales import router as sales_router
     from app.api.routes.suppliers import router as suppliers_router
+    from app.api.routes.ventures import router as ventures_router
 
     for router in (
         auth_router,
+        ventures_router,
         business_settings_router,
         categories_router,
         suppliers_router,
@@ -76,8 +78,6 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(ScopeViolationError)
     async def scope_violation_handler(_request, _exc: ScopeViolationError) -> JSONResponse:
-        # Cross-company lookup/write failures intentionally do not reveal whether
-        # the referenced resource exists in another venture.
         return JSONResponse(
             status_code=404,
             content={
@@ -94,17 +94,8 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         if isinstance(detail, dict) and "code" in detail and "message" in detail:
             content = {"error": detail}
         else:
-            content = {
-                "error": {
-                    "code": "http_error",
-                    "message": str(detail),
-                }
-            }
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=content,
-            headers=exc.headers,
-        )
+            content = {"error": {"code": "http_error", "message": str(detail)}}
+        return JSONResponse(status_code=exc.status_code, content=content, headers=exc.headers)
 
     return app
 

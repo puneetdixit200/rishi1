@@ -2,13 +2,16 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models import UserRole
+from app.models import BusinessType, UserRole
 
 
 class UserRead(BaseModel):
     id: int
     business_group_id: int
     company_id: int | None
+    company_name: str | None = None
+    company_slug: str | None = None
+    company_business_type: BusinessType | None = None
     name: str
     email: str
     role: UserRole
