@@ -14,6 +14,7 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.branches import router as branches_router
     from app.api.routes.business_settings import router as business_settings_router
     from app.api.routes.cafe import router as cafe_router
+    from app.api.routes.cafe_qr_render import router as cafe_qr_render_router
     from app.api.routes.categories import router as categories_router
     from app.api.routes.customers import router as customers_router
     from app.api.routes.dashboard import router as dashboard_router
@@ -32,6 +33,7 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
         auth_router,
         ventures_router,
         cafe_router,
+        cafe_qr_render_router,
         tax_operation_router,
         business_settings_router,
         categories_router,
