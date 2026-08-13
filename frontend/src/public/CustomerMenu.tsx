@@ -42,7 +42,7 @@ export function CustomerMenu({ qrToken }: { qrToken: string }) {
     <main style={{ minHeight: "100vh", padding: 16, background: "#f4f6f8" }}>
       <div className="page-stack" style={{ maxWidth: 760, margin: "0 auto" }}>
         <header className="page-header">
-          <div><p className="eyebrow">{cafe.menu.cafe_name}</p><h1>{cafe.menu.table_display_name}</h1><p className="page-description">Table {cafe.menu.table_code} · {cafe.sessionStatus.replaceAll("_", " ")}</p></div>
+          <div><p className="eyebrow">{cafe.menu.cafe_name}</p><h1>{cafe.menu.table_display_name}</h1><p className="page-description">Table {cafe.menu.table_code} · {cafe.sessionStatus.replace(/_/g, " ")}</p></div>
           <span className={`status-badge ${acceptingItems ? "ok" : "warning"}`}>{acceptingItems ? "Ordering open" : "Ordering paused"}</span>
         </header>
         {cart.message ? <div className="success-banner" role="status">{cart.message}</div> : null}
