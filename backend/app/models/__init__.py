@@ -19,6 +19,17 @@ from app.models.business_settings import (
     TaxRate,
     TaxRegistrationStatus,
 )
+from app.models.cafe import (
+    ACTIVE_TABLE_SESSION_STATUSES,
+    CafeTable,
+    MenuCategory,
+    MenuItem,
+    PreparationArea,
+    TableQRToken,
+    TableSession,
+    TableSessionStatus,
+    TableSessionType,
+)
 from app.models.category import Category
 from app.models.chat import AIChatMessage, AIChatSession, ChatSender
 from app.models.customer import (
@@ -74,6 +85,7 @@ from app.models.sync import (
 from app.models.user import User, UserRole
 
 __all__ = [
+    "ACTIVE_TABLE_SESSION_STATUSES",
     "AIChatMessage",
     "AIChatSession",
     "AuditLog",
@@ -81,6 +93,7 @@ __all__ = [
     "BusinessGroup",
     "BusinessProfile",
     "BusinessType",
+    "CafeTable",
     "Category",
     "ChatSender",
     "Company",
@@ -107,8 +120,11 @@ __all__ = [
     "InvoiceStatusHistory",
     "InvoiceTax",
     "InvoiceTaxType",
+    "MenuCategory",
+    "MenuItem",
     "PaymentMode",
     "PaymentModeType",
+    "PreparationArea",
     "Product",
     "ProductBarcode",
     "ProductItemType",
@@ -137,6 +153,10 @@ __all__ = [
     "SyncInboxStatus",
     "SyncOutbox",
     "SyncOutboxStatus",
+    "TableQRToken",
+    "TableSession",
+    "TableSessionStatus",
+    "TableSessionType",
     "TaxMode",
     "TaxRate",
     "TaxRegistrationStatus",
