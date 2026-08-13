@@ -46,4 +46,5 @@ def render_table_qr(
         raw_token=payload.raw_token,
         public_base_url=payload.public_base_url,
     )
-    return print_data.model_copy(update={"qr_svg_data_uri": _svg_data_uri(print_data.qr_payload)})
+    qr_payload = f"{payload.public_base_url.rstrip('/')}/{payload.raw_token}"
+    return print_data.model_copy(update={"qr_svg_data_uri": _svg_data_uri(qr_payload)})
