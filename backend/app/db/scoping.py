@@ -12,6 +12,7 @@ from app.models import (
     Branch,
     BusinessGroup,
     BusinessProfile,
+    CafeTable,
     Category,
     Company,
     Customer,
@@ -24,6 +25,8 @@ from app.models import (
     InventoryBatch,
     Invoice,
     InvoiceSequence,
+    MenuCategory,
+    MenuItem,
     PaymentMode,
     PrintTemplate,
     Product,
@@ -34,6 +37,8 @@ from app.models import (
     SerialNumber,
     StockMovement,
     Supplier,
+    TableQRToken,
+    TableSession,
     User,
     UserRole,
 )
@@ -56,6 +61,7 @@ class ScopedSession(Session):
 COMPANY_MODELS = (
     Branch,
     BusinessProfile,
+    CafeTable,
     Category,
     Customer,
     CustomerLedgerEntry,
@@ -67,6 +73,8 @@ COMPANY_MODELS = (
     InventoryBatch,
     Invoice,
     InvoiceSequence,
+    MenuCategory,
+    MenuItem,
     PaymentMode,
     PrintTemplate,
     Product,
@@ -77,12 +85,20 @@ COMPANY_MODELS = (
     SerialNumber,
     StockMovement,
     Supplier,
+    TableQRToken,
+    TableSession,
     AIChatSession,
     AuditLog,
 )
 
+# MenuCategory/MenuItem are intentionally not in BRANCH_MODELS because branch_id
+# may be NULL to represent a company-wide Cafe menu policy. Their services apply
+# `(branch_id IS NULL OR branch_id IN allowed_branches)` explicitly. All table,
+# QR, and session rows are branch-owned and therefore use the generic branch
+# criteria below.
 BRANCH_MODELS = (
     Branch,
+    CafeTable,
     Customer,
     CustomerLedgerEntry,
     CustomerPayment,
@@ -95,6 +111,8 @@ BRANCH_MODELS = (
     Sale,
     SerialNumber,
     StockMovement,
+    TableQRToken,
+    TableSession,
     AIChatSession,
 )
 
@@ -119,6 +137,11 @@ REFERENCE_COMPANY_MODELS: dict[type[Any], tuple[tuple[str, type[Any]], ...]] = {
     Forecast: (("product_id", Product), ("category_id", Category), ("branch_id", Branch)),
     AIChatSession: (("user_id", User), ("branch_id", Branch)),
     AuditLog: (("user_id", User),),
+    MenuCategory: (("branch_id", Branch),),
+    MenuItem: (("branch_id", Branch), ("category_id", MenuCategory), ("product_id", Product)),
+    CafeTable: (("branch_id", Branch),),
+    TableQRToken: (("branch_id", Branch), ("table_id", CafeTable)),
+    TableSession: (("branch_id", Branch), ("table_id", CafeTable)),
 }
 
 
