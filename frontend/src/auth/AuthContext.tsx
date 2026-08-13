@@ -8,7 +8,13 @@ import {
   useState,
 } from "react";
 
-import { ApiError, apiRequest, authTokenStorage, loginRequest } from "../api/client";
+import {
+  activeVentureStorage,
+  ApiError,
+  apiRequest,
+  authTokenStorage,
+  loginRequest,
+} from "../api/client";
 import { normalizeAuthUser, type AuthUser, type ServerAuthUser } from "./types";
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
@@ -31,6 +37,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const clearAuth = useCallback(() => {
     authTokenStorage.clear();
+    activeVentureStorage.clear();
     setToken(null);
     setUser(null);
     setStatus("unauthenticated");
@@ -59,6 +66,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await loginRequest(email, password);
+    activeVentureStorage.clear();
     authTokenStorage.set(response.access_token);
     setToken(response.access_token);
     setUser(response.user);
