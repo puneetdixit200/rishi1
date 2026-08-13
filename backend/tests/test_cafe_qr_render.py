@@ -31,23 +31,24 @@ def test_authenticated_qr_render_returns_local_svg_without_hash(
         json={"expires_in_days": 30, "public_base_url": "/order"},
     )
     assert rotation.status_code == 200
-    raw_token = rotation.json()["raw_token"]
+    qr_value = rotation.json()["raw_token"]
 
     rendered = client.post(
         f"/api/cafe/tables/{table['id']}/qr/render",
         headers=headers,
-        json={"raw_token": raw_token, "public_base_url": "/order"},
+        json={"raw_token": qr_value, "public_base_url": "/order"},
     )
     assert rendered.status_code == 200, rendered.text
     body = rendered.json()
     assert body["qr_svg_data_uri"].startswith("data:image/svg+xml")
-    assert body["qr_payload"].endswith(raw_token)
     assert "token_hash" not in rendered.text
+    assert "raw_token" not in body
+    assert "qr_payload" not in body
 
     retail_headers = login_headers(client, "admin@hybridretail.test")
     denied = client.post(
         f"/api/cafe/tables/{table['id']}/qr/render",
         headers=retail_headers,
-        json={"raw_token": raw_token, "public_base_url": "/order"},
+        json={"raw_token": qr_value, "public_base_url": "/order"},
     )
     assert denied.status_code == 403
