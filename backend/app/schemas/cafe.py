@@ -141,10 +141,10 @@ class QRTokenStatusRead(BaseModel):
 class QRPrintDataRead(BaseModel):
     table_code: str
     table_display_name: str
-    qr_payload: str
     public_reference: str
     token_prefix: str
     expires_at: datetime | None
+    qr_svg_data_uri: str | None = None
 
 
 class QRRotateRead(QRPrintDataRead):
