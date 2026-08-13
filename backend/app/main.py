@@ -23,13 +23,18 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.inventory import router as inventory_router
     from app.api.routes.invoices import router as invoices_router
     from app.api.routes.products import router as products_router
+    from app.api.routes.public_cafe import router as public_cafe_router
     from app.api.routes.purchase_orders import router as purchase_orders_router
     from app.api.routes.sales import router as sales_router
     from app.api.routes.suppliers import router as suppliers_router
     from app.api.routes.tax_operation import router as tax_operation_router
     from app.api.routes.ventures import router as ventures_router
 
+    # Public ordering is registered before the legacy P5 QR preview route so the
+    # P6 contract owns the customer-facing resolve path. The legacy route is
+    # removed once its admin compatibility callers are migrated.
     for router in (
+        public_cafe_router,
         auth_router,
         ventures_router,
         cafe_router,
