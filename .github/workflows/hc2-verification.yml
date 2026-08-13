@@ -28,9 +28,6 @@ jobs:
     env:
       DEPLOYMENT_MODE: local_hub
       DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
-      LOCAL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
-      CLOUD_RUNTIME_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
-      CLOUD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
       HC2_TEST_CLOUD_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
       SECRET_KEY: github-actions-hc2-only
     steps:
@@ -52,6 +49,9 @@ jobs:
         run: alembic -c alembic.ini upgrade head
       - name: Rehearse independent cloud migration history
         working-directory: backend
+        env:
+          CLOUD_RUNTIME_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
+          CLOUD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
         run: alembic -c alembic_cloud.ini upgrade head
       - name: Verify independent migration heads
         working-directory: backend
@@ -72,6 +72,7 @@ jobs:
         working-directory: backend
         env:
           DEPLOYMENT_MODE: cloud_gateway
+          CLOUD_RUNTIME_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
         run: >-
           python -c "import server; paths={r.path for r in server.app.routes}; assert '/api/cloud/readiness' in paths; assert '/api/inventory/adjustments' not in paths"
       - name: Run complete backend regression
@@ -85,7 +86,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
