@@ -45,7 +45,7 @@ def test_super_admin_creates_company_scoped_user_and_assignment_change_revokes_t
         headers=owner_headers,
         json={
             "name": "Cafe Kitchen Two",
-            "email": "cafe.kitchen2@example.test",
+            "email": "cafe.kitchen2@example.com",
             "password": TEST_PASSWORD,
             "role": "kitchen",
             "company_id": 2,
@@ -54,7 +54,7 @@ def test_super_admin_creates_company_scoped_user_and_assignment_change_revokes_t
     )
     assert created.status_code == 201, created.text
     user_id = created.json()["id"]
-    old_headers = login_headers(client, "cafe.kitchen2@example.test")
+    old_headers = login_headers(client, "cafe.kitchen2@example.com")
 
     updated = client.put(
         f"/api/venture-users/{user_id}",
@@ -80,7 +80,7 @@ def test_user_assignment_rejects_branch_from_other_venture(client, db_session_fa
         headers=owner_headers,
         json={
             "name": "Invalid Cafe Manager",
-            "email": "invalid.cafe.manager@example.test",
+            "email": "invalid.cafe.manager@example.com",
             "password": TEST_PASSWORD,
             "role": "store_manager",
             "company_id": 2,
@@ -98,7 +98,7 @@ def test_normal_admin_cannot_create_or_reassign_users(client, db_session_factory
         headers=admin_headers,
         json={
             "name": "Unauthorized User",
-            "email": "unauthorized@example.test",
+            "email": "unauthorized@example.com",
             "password": TEST_PASSWORD,
             "role": "staff",
             "company_id": 1,
@@ -107,7 +107,10 @@ def test_normal_admin_cannot_create_or_reassign_users(client, db_session_factory
     assert response.status_code == 403
 
 
-def test_cafe_seed_accounts_can_be_single_company_users(db_session_factory: sessionmaker[Session]) -> None:
+def test_cafe_seed_accounts_can_be_single_company_users(
+    db_session_factory: sessionmaker[Session],
+    seed_auth_data: None,
+) -> None:
     ids = seed_two_ventures(db_session_factory)
     with db_session_factory() as db:
         cafe_admin = db.get(User, ids["cafe_admin"])
