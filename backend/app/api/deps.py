@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated, Callable
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,7 @@ class BranchScope:
 def get_auth_context(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
     db: Annotated[Session, Depends(get_db)],
+    x_venture_id: Annotated[int | None, Header(alias="X-Venture-Id")] = None,
 ) -> AuthContext:
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise_unauthorized()
@@ -79,9 +80,23 @@ def get_auth_context(
     if group is None or not group.is_active:
         raise_unauthorized("User account is inactive or no longer exists.")
 
+    selected_company_id: int | None = None
     if user.role == UserRole.SUPER_ADMIN:
         if user.company_id is not None or user.branch_id is not None:
             raise_unauthorized("Invalid account scope.")
+        if x_venture_id is not None:
+            company = db.get(
+                Company,
+                x_venture_id,
+                execution_options={"scope_bypass": True},
+            )
+            if (
+                company is None
+                or not company.is_active
+                or company.business_group_id != user.business_group_id
+            ):
+                raise_forbidden("Selected venture is not available to this account.")
+            selected_company_id = company.id
     else:
         if user.company_id is None:
             raise_unauthorized("Invalid account scope.")
@@ -96,8 +111,10 @@ def get_auth_context(
             or company.business_group_id != user.business_group_id
         ):
             raise_unauthorized("User account is inactive or no longer exists.")
+        if x_venture_id is not None and x_venture_id != user.company_id:
+            raise_forbidden("Venture switching is not available to this account.")
 
-    scope = scope_context_for_user(user)
+    scope = scope_context_for_user(user, selected_company_id=selected_company_id)
     bind_scope(db, scope)
 
     return AuthContext(
