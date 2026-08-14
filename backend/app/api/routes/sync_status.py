@@ -57,6 +57,12 @@ def _dead_letter_in_scope(row: SyncDeadLetter, scope: ScopeContext) -> bool:
     return True
 
 
+def _utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 def _apply_stale_state(state: ContinuityState | None) -> bool:
     if state is None or state.mode not in {
         ContinuityMode.LIVE,
@@ -66,8 +72,10 @@ def _apply_stale_state(state: ContinuityState | None) -> bool:
         return False
     now = datetime.now(UTC)
     stale_cutoff = now - timedelta(seconds=settings.continuity_stale_after_seconds)
-    heartbeat_stale = state.last_heartbeat_at is None or state.last_heartbeat_at < stale_cutoff
-    lease_stale = state.lease_expires_at is not None and state.lease_expires_at <= now
+    heartbeat = _utc(state.last_heartbeat_at)
+    lease_expiry = _utc(state.lease_expires_at)
+    heartbeat_stale = heartbeat is None or heartbeat < stale_cutoff
+    lease_stale = lease_expiry is not None and lease_expiry <= now
     if not heartbeat_stale and not lease_stale:
         return False
     state.mode = ContinuityMode.STALE
@@ -108,9 +116,10 @@ def sync_status(db: Database, scope: Scope, _viewer: SyncViewer) -> SyncStatusRe
             SyncOutbox.status.in_([SyncOutboxStatus.PENDING, SyncOutboxStatus.RETRY]),
         )
     )
-    oldest = min([value for value in (oldest_inbox, oldest_outbox) if value is not None], default=None)
-    if oldest is not None and oldest.tzinfo is None:
-        oldest = oldest.replace(tzinfo=UTC)
+    oldest = min(
+        [value for value in (_utc(oldest_inbox), _utc(oldest_outbox)) if value is not None],
+        default=None,
+    )
     last_inbound = db.scalar(select(func.max(SyncInbox.processed_at)).where(*inbox_filters))
     last_outbound = db.scalar(select(func.max(SyncOutbox.sent_at)).where(*outbox_filters))
     dead_letters = [
