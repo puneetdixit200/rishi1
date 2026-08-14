@@ -24,16 +24,8 @@ router = APIRouter(prefix="/cloud", tags=["cloud-gateway"])
 Database = Annotated[Session, Depends(get_db)]
 
 
-def _active_device(
-    db: Session,
-    *,
-    device_id: str,
-    proof: str,
-    purpose: str,
-):
-    row = db.execute(
-        select(device_registrations).where(device_registrations.c.device_id == device_id)
-    ).mappings().first()
+def _active_device(db: Session, *, device_id: str, proof: str, purpose: str):
+    row = db.execute(select(device_registrations).where(device_registrations.c.device_id == device_id)).mappings().first()
     if row is None or row["status"] != "active" or row["revoked_at"] is not None:
         raise_unauthorized("Device authorization is not active.")
     candidate = hashlib.sha256(proof.encode("utf-8")).hexdigest()
@@ -44,13 +36,7 @@ def _active_device(
     return row
 
 
-def _require_scope_values(
-    row,
-    *,
-    business_group_id: str,
-    company_id: str | None,
-    branch_id: str | None,
-) -> None:
+def _require_scope_values(row, *, business_group_id: str, company_id: str | None, branch_id: str | None) -> None:
     if str(row["business_group_id"]) != str(business_group_id):
         raise_forbidden("Operation scope is not authorized for this device.")
     if row["company_id"] is not None and str(row["company_id"]) != str(company_id):
@@ -69,10 +55,7 @@ def _require_scope(row, payload: MenuPublicationInput) -> None:
 
 
 def _canonical_payload_digest(payload: object) -> str:
-    if hasattr(payload, "model_dump"):
-        value = payload.model_dump(mode="json")
-    else:
-        value = payload
+    value = payload.model_dump(mode="json") if hasattr(payload, "model_dump") else payload
     encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
 
@@ -98,17 +81,11 @@ def _verify_signed_request(
         raise_unauthorized("Device request signature is stale.")
     if not nonce or len(nonce) > 64:
         raise_unauthorized("Device request nonce is invalid.")
-
     digest = _canonical_payload_digest(payload)
     canonical = f"{device_id}\n{timestamp}\n{nonce}\n{digest}".encode("utf-8")
-    expected = hmac.new(
-        str(device["credential_hash"]).encode("utf-8"),
-        canonical,
-        hashlib.sha256,
-    ).hexdigest()
+    expected = hmac.new(str(device["credential_hash"]).encode("utf-8"), canonical, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, signature):
         raise_unauthorized("Device request signature is invalid.")
-
     db.execute(delete(continuity_request_nonces).where(continuity_request_nonces.c.expires_at < now))
     try:
         with db.begin_nested():
@@ -129,12 +106,9 @@ def _lease_read(row) -> WriterLeaseRead | None:
     if row is None:
         return None
     return WriterLeaseRead(
-        scope_key=row["scope_key"],
-        current_mode=row["current_mode"],
-        lease_owner_device_id=row["lease_owner_device_id"],
-        fencing_epoch=int(row["fencing_epoch"]),
-        lease_expires_at=row["lease_expires_at"],
-        last_heartbeat_at=row["last_heartbeat_at"],
+        scope_key=row["scope_key"], current_mode=row["current_mode"],
+        lease_owner_device_id=row["lease_owner_device_id"], fencing_epoch=int(row["fencing_epoch"]),
+        lease_expires_at=row["lease_expires_at"], last_heartbeat_at=row["last_heartbeat_at"],
         recovery_state=row["recovery_state"],
     )
 
@@ -160,12 +134,7 @@ def heartbeat(
     x_device_nonce: Annotated[str, Header(alias="X-Device-Nonce")],
     x_device_signature: Annotated[str, Header(alias="X-Device-Signature")],
 ) -> SignedHeartbeatRead:
-    device = _active_device(
-        db,
-        device_id=x_device_id,
-        proof=x_device_proof,
-        purpose="heartbeat",
-    )
+    device = _active_device(db, device_id=x_device_id, proof=x_device_proof, purpose="heartbeat")
     _verify_signed_request(
         db,
         device=device,
@@ -178,35 +147,21 @@ def heartbeat(
     now = datetime.now(UTC)
     db.execute(
         insert(device_heartbeats).values(
-            device_id=device["device_id"],
-            business_group_id=device["business_group_id"],
-            company_id=device["company_id"],
-            branch_id=device["branch_id"],
-            mode=payload.mode,
-            fencing_epoch=payload.fencing_epoch,
-            software_version=payload.software_version,
-            event_schema_version=payload.event_schema_version,
-            recorded_at=now,
+            device_id=device["device_id"], business_group_id=device["business_group_id"],
+            company_id=device["company_id"], branch_id=device["branch_id"], mode=payload.mode,
+            fencing_epoch=payload.fencing_epoch, software_version=payload.software_version,
+            event_schema_version=payload.event_schema_version, recorded_at=now,
         )
     )
-    db.execute(
-        update(device_registrations)
-        .where(device_registrations.c.device_id == device["device_id"])
-        .values(last_seen_at=now)
-    )
+    db.execute(update(device_registrations).where(device_registrations.c.device_id == device["device_id"]).values(last_seen_at=now))
     lease = db.execute(
         select(writer_leases).where(writer_leases.c.lease_owner_device_id == x_device_id)
-        .order_by(writer_leases.c.updated_at.desc())
-        .limit(1)
+        .order_by(writer_leases.c.updated_at.desc()).limit(1)
     ).mappings().first()
     if lease is not None and payload.fencing_epoch not in {0, int(lease["fencing_epoch"])}:
         raise_conflict("Heartbeat fencing epoch is stale.")
     if lease is not None:
-        db.execute(
-            update(writer_leases)
-            .where(writer_leases.c.id == lease["id"])
-            .values(last_heartbeat_at=now)
-        )
+        db.execute(update(writer_leases).where(writer_leases.c.id == lease["id"]).values(last_heartbeat_at=now))
         lease = dict(lease)
         lease["last_heartbeat_at"] = now
     db.commit()
@@ -214,6 +169,9 @@ def heartbeat(
         accepted=True,
         device_id=device["device_id"],
         recorded_at=now,
+        business_group_id=str(device["business_group_id"]),
+        company_id=str(device["company_id"]) if device["company_id"] is not None else None,
+        branch_id=str(device["branch_id"]) if device["branch_id"] is not None else None,
         lease=_lease_read(lease),
     )
 
@@ -225,12 +183,7 @@ def publish_menu(
     x_device_id: Annotated[str, Header(alias="X-Device-Id")],
     x_device_proof: Annotated[str, Header(alias="X-Device-Proof")],
 ) -> MenuPublicationRead:
-    device = _active_device(
-        db,
-        device_id=x_device_id,
-        proof=x_device_proof,
-        purpose="menu_publication",
-    )
+    device = _active_device(db, device_id=x_device_id, proof=x_device_proof, purpose="menu_publication")
     _require_scope(device, payload)
     return publish_menu_snapshot(db, payload=payload, source_device_id=device["device_id"])
 
@@ -242,5 +195,4 @@ def public_menu(publication_id: UUID, db: Database) -> SafeMenuRead:
 
 @router.post("/public/cafe/qr/resolve")
 def public_qr_resolve(payload: dict[str, str], db: Database) -> dict[str, object]:
-    value = str(payload.get("opaque_token", ""))
-    return resolve_published_table(db, value)
+    return resolve_published_table(db, str(payload.get("opaque_token", "")))
