@@ -2,10 +2,19 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
-from sqlalchemy import create_engine, delete, select
+# When executed as `python scripts/verify_hc4_backup_restore.py`, Python places
+# backend/scripts on sys.path. Add the backend root explicitly so application
+# modules are imported from the same tree that migrations/tests just verified.
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.models import (
@@ -22,10 +31,15 @@ from app.schemas.sync import EventEnvelope, EventSource
 from app.sync.service import enqueue_outbox_event
 
 MARKER = "hc4-backup-restore-proof"
+RECONCILIATION_REFERENCE = "00000000-0000-0000-0000-00000000c404"
 
 
 def _factory() -> sessionmaker[Session]:
-    url = os.environ.get("HC4_BACKUP_DATABASE_URL") or os.environ.get("LOCAL_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    url = (
+        os.environ.get("HC4_BACKUP_DATABASE_URL")
+        or os.environ.get("LOCAL_DATABASE_URL")
+        or os.environ.get("DATABASE_URL")
+    )
     if not url:
         raise RuntimeError("HC4_BACKUP_DATABASE_URL or LOCAL_DATABASE_URL is required.")
     engine = create_engine(url, pool_pre_ping=True)
@@ -35,26 +49,18 @@ def _factory() -> sessionmaker[Session]:
 def seed(factory: sessionmaker[Session]) -> None:
     with factory() as db:
         with db.begin():
-            existing = db.scalar(select(SyncOutbox).where(SyncOutbox.aggregate_id == MARKER))
-            if existing is not None:
-                db.delete(existing)
-            checkpoint = db.scalar(select(SyncCheckpoint).where(SyncCheckpoint.stream_name == MARKER))
-            if checkpoint is not None:
-                db.delete(checkpoint)
-            device = db.scalar(select(SyncDevice).where(SyncDevice.device_id == MARKER))
-            if device is not None:
-                db.delete(device)
-            state = db.scalar(select(ContinuityState).where(ContinuityState.scope_key == MARKER))
-            if state is not None:
-                db.delete(state)
-            reconciliation = db.scalar(
+            # Use a release-specific marker and require a clean slot. CI starts
+            # from a fresh database; encountering an existing marker should fail
+            # visibly instead of mutating evidence left by another rehearsal.
+            assert db.scalar(select(SyncOutbox).where(SyncOutbox.aggregate_id == MARKER)) is None
+            assert db.scalar(select(SyncCheckpoint).where(SyncCheckpoint.stream_name == MARKER)) is None
+            assert db.scalar(select(SyncDevice).where(SyncDevice.device_id == MARKER)) is None
+            assert db.scalar(select(ContinuityState).where(ContinuityState.scope_key == MARKER)) is None
+            assert db.scalar(
                 select(ContinuityReconciliation).where(
-                    ContinuityReconciliation.reconciliation_reference == "00000000-0000-0000-0000-00000000c404"
+                    ContinuityReconciliation.reconciliation_reference == RECONCILIATION_REFERENCE
                 )
-            )
-            if reconciliation is not None:
-                db.delete(reconciliation)
-            db.flush()
+            ) is None
 
             event = EventEnvelope(
                 event_id=uuid4(),
@@ -100,7 +106,7 @@ def seed(factory: sessionmaker[Session]) -> None:
             )
             db.add(
                 ContinuityReconciliation(
-                    reconciliation_reference="00000000-0000-0000-0000-00000000c404",
+                    reconciliation_reference=RECONCILIATION_REFERENCE,
                     scope_key=MARKER,
                     business_group_id="1",
                     company_id="2",
@@ -121,7 +127,7 @@ def verify(factory: sessionmaker[Session]) -> None:
         state = db.scalar(select(ContinuityState).where(ContinuityState.scope_key == MARKER))
         reconciliation = db.scalar(
             select(ContinuityReconciliation).where(
-                ContinuityReconciliation.reconciliation_reference == "00000000-0000-0000-0000-00000000c404"
+                ContinuityReconciliation.reconciliation_reference == RECONCILIATION_REFERENCE
             )
         )
         assert outbox is not None and outbox.status.value == "pending"
@@ -130,7 +136,10 @@ def verify(factory: sessionmaker[Session]) -> None:
         assert state is not None and state.fencing_epoch == 9 and state.pending_outbox == 1
         assert reconciliation is not None and reconciliation.status == ContinuityReconciliationStatus.PENDING
         assert reconciliation.details_json == {"marker": MARKER}
-    print("HC4 backup/restore verification passed: queue, checkpoint, device, continuity, and reconciliation state survived.")
+    print(
+        "HC4 backup/restore verification passed: queue, checkpoint, device, "
+        "continuity, and reconciliation state survived."
+    )
 
 
 def main() -> None:
