@@ -99,7 +99,13 @@ export function CafeContinuityPage() {
   }
 
   if (loading) return <LoadingState label="Loading continuity state" />;
-  if (error && !status) return <ErrorState message={error} onRetry={() => void refresh()} />;
+  if (error && !status) {
+    return (
+      <ErrorState message={error}>
+        <button className="secondary-button" onClick={() => void refresh()}>Retry</button>
+      </ErrorState>
+    );
+  }
 
   const mode = status?.continuity_mode ?? "stale";
   const stateCopy = STATE_COPY[mode];
