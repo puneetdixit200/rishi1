@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models import CafeOrderSource, CafeOrderStatus, PreparationArea, TableSessionType
+from app.models import CafeOrderSource, CafeOrderStatus, PreparationArea, TableSessionStatus, TableSessionType
 
 
 class StaffOrderItemInput(BaseModel):
@@ -58,6 +58,20 @@ class OrderReasonInput(OrderVersionInput):
         if len(cleaned) < 3:
             raise ValueError("A reason is required.")
         return cleaned
+
+
+class TableSessionBillRequestInput(BaseModel):
+    expected_version: int = Field(ge=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class TableSessionBillRequestRead(BaseModel):
+    public_id: str
+    status: TableSessionStatus
+    bill_requested_at: datetime
+    version: int
+    affected_order_public_ids: list[str]
 
 
 class StaffOrderItemRead(BaseModel):
