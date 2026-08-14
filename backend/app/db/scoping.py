@@ -18,6 +18,7 @@ from app.models import (
     CafeOrderStatusHistory,
     CafeTable,
     Category,
+    CloudRecordLink,
     Company,
     Customer,
     CustomerLedgerEntry,
@@ -71,6 +72,7 @@ COMPANY_MODELS = (
     CafeOrderStatusHistory,
     CafeTable,
     Category,
+    CloudRecordLink,
     Customer,
     CustomerLedgerEntry,
     CustomerPayment,
@@ -102,8 +104,8 @@ COMPANY_MODELS = (
 # MenuCategory/MenuItem are intentionally not in BRANCH_MODELS because branch_id
 # may be NULL to represent a company-wide Cafe menu policy. Their services apply
 # `(branch_id IS NULL OR branch_id IN allowed_branches)` explicitly. All table,
-# QR, session, guest-access, and Cafe order rows are branch-owned and therefore
-# use the generic branch criteria below.
+# QR, session, guest-access, Cafe order, and cloud-link rows are branch-owned and
+# therefore use the generic branch criteria below.
 BRANCH_MODELS = (
     Branch,
     CafeGuestAccess,
@@ -111,6 +113,7 @@ BRANCH_MODELS = (
     CafeOrderItem,
     CafeOrderStatusHistory,
     CafeTable,
+    CloudRecordLink,
     Customer,
     CustomerLedgerEntry,
     CustomerPayment,
@@ -158,6 +161,7 @@ REFERENCE_COMPANY_MODELS: dict[type[Any], tuple[tuple[str, type[Any]], ...]] = {
     CafeOrder: (("branch_id", Branch), ("table_session_id", TableSession), ("guest_access_id", CafeGuestAccess)),
     CafeOrderItem: (("branch_id", Branch), ("cafe_order_id", CafeOrder), ("menu_item_id", MenuItem), ("product_id", Product)),
     CafeOrderStatusHistory: (("branch_id", Branch), ("cafe_order_id", CafeOrder)),
+    CloudRecordLink: (("branch_id", Branch),),
 }
 
 
@@ -183,7 +187,6 @@ def _apply_read_scope(execute_state: ORMExecuteState) -> None:
     if scope is None or scope.all_companies:
         return
     if scope.company_id is None:
-        # A non-global user without a company is an invalid authorization state.
         execute_state.statement = execute_state.statement.where(False)
         return
 
