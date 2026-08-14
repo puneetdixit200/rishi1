@@ -202,6 +202,15 @@ class LocalSyncWorker:
 
     def _heartbeat_and_lease(self, metrics: dict[str, int | datetime | None]) -> bool:
         if self._heartbeat_sender is None or self._lease_acquirer is None or self.device_id is None:
+            # HC1-HC3 tests and embedded integrations can inject a direct transport
+            # without a configured HTTP gateway. Preserve that explicit transport
+            # contract while requiring heartbeat/fencing for real configured gateways.
+            if (
+                self.device_id is not None
+                and self.transport is not None
+                and not (self.settings.cloud_gateway_base_url or "").strip()
+            ):
+                return True
             self._persist_state(mode=ContinuityMode.OFFLINE_LOCAL, metrics=metrics)
             return False
         try:
