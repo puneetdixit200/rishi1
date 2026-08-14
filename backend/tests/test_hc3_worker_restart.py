@@ -15,6 +15,7 @@ from tests.test_hc3_cloud_order_convergence import (
 
 def test_fresh_worker_pulls_and_imports_pending_cloud_order(
     db_session_factory,
+    seed_auth_data,
     hc3_cloud_factory,
 ) -> None:
     ids, publication = _publish_local_fixture(db_session_factory, hc3_cloud_factory)
