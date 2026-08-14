@@ -110,7 +110,7 @@ class InvoiceTaxRead(BaseModel):
 
 class InvoiceItemRead(BaseModel):
     id: int
-    product_id: int
+    product_id: int | None
     product_name_snapshot: str
     sku_snapshot: str
     hsn_sac_code: str | None
@@ -170,6 +170,8 @@ class InvoiceListItemRead(BaseModel):
     customer_name: str | None = None
     sale_id: int | None
     invoice_type: InvoiceType
+    source_type: str | None = None
+    source_id: str | None = None
     place_of_supply_state: str | None
     place_of_supply_state_code: str | None
     invoice_date: datetime

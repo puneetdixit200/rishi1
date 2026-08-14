@@ -1,5 +1,6 @@
 import type { AuthUser } from "../auth/types";
 import { TaxOperationPanel } from "../components/TaxOperationPanel";
+import { CafeBillingPage } from "../pages/CafeBillingPage";
 import { CafeKitchenPage } from "../pages/CafeKitchenPage";
 import { CafeLiveOrdersPage } from "../pages/CafeLiveOrdersPage";
 import { CafeMenuPage } from "../pages/CafeMenuPage";
@@ -56,6 +57,7 @@ export function CafePortal({ user, pathname, onNavigate, onLogout }: CafePortalP
   let content;
   if (active === "orders") content = <CafeLiveOrdersPage />;
   else if (active === "pos") content = <CafeNewOrderPage />;
+  else if (active === "billing") content = <CafeBillingPage />;
   else if (active === "kitchen") content = <CafeKitchenPage />;
   else if (active === "menu") content = <CafeMenuPage />;
   else if (active === "tables") content = <CafeTablesPage />;

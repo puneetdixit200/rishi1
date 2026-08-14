@@ -186,11 +186,10 @@ class TableSession(CompanyScopeMixin, TimestampMixin, Base):
     )
     opened_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     opened_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=lambda: datetime.now(UTC),
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
     bill_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    billed_invoice_id: Mapped[int | None] = mapped_column(ForeignKey("invoices.id"), nullable=True)
     closed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
@@ -201,6 +200,7 @@ class TableSession(CompanyScopeMixin, TimestampMixin, Base):
         Index("ix_table_sessions_table_id", "table_id"),
         Index("ix_table_sessions_public_id", "public_id"),
         Index("ix_table_sessions_status", "status"),
+        Index("ix_table_sessions_billed_invoice_id", "billed_invoice_id"),
         Index(
             "uq_table_sessions_one_active_per_table",
             "table_id",

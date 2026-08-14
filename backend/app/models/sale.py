@@ -54,14 +54,16 @@ class SaleItem(Base):
         ForeignKey("sales.id", ondelete="CASCADE"),
         nullable=False,
     )
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    # Cafe prepared-food items may intentionally have no linked stock product.
+    # Retail sale items remain product-linked exactly as before.
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     quantity: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     discount_amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False, default=0)
     line_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False)
 
     sale: Mapped[Sale] = relationship(back_populates="items")
-    product: Mapped[Product] = relationship(back_populates="sale_items")
+    product: Mapped[Product | None] = relationship(back_populates="sale_items")
 
     __table_args__ = (
         Index("ix_sale_items_sale_id", "sale_id"),

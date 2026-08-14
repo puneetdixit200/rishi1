@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Enum, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, CompanyScopeMixin, TimestampMixin
@@ -68,13 +68,15 @@ class Invoice(CompanyScopeMixin, TimestampMixin, Base):
     customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"), nullable=True)
     sale_id: Mapped[int | None] = mapped_column(ForeignKey("sales.id"), nullable=True)
     invoice_type: Mapped[InvoiceType] = mapped_column(enum_column(InvoiceType, "invoice_type"), nullable=False)
+    source_type: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    source_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    billing_idempotency_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    billing_request_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     place_of_supply_state: Mapped[str | None] = mapped_column(String(100), nullable=True)
     place_of_supply_state_code: Mapped[str | None] = mapped_column(String(2), nullable=True)
     invoice_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     status: Mapped[InvoiceStatus] = mapped_column(
-        enum_column(InvoiceStatus, "invoice_status"),
-        nullable=False,
-        default=InvoiceStatus.DRAFT,
+        enum_column(InvoiceStatus, "invoice_status"), nullable=False, default=InvoiceStatus.DRAFT
     )
     subtotal: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
     discount_total: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
@@ -108,6 +110,9 @@ class Invoice(CompanyScopeMixin, TimestampMixin, Base):
 
     __table_args__ = (
         UniqueConstraint("company_id", "invoice_number", name="uq_invoices_company_invoice_number"),
+        UniqueConstraint(
+            "company_id", "billing_idempotency_key_hash", name="uq_invoices_company_billing_idempotency"
+        ),
         Index("ix_invoices_company_id", "company_id"),
         Index("ix_invoices_branch_id", "branch_id"),
         Index("ix_invoices_customer_id", "customer_id"),
@@ -115,6 +120,20 @@ class Invoice(CompanyScopeMixin, TimestampMixin, Base):
         Index("ix_invoices_status", "status"),
         Index("ix_invoices_payment_status", "payment_status"),
         Index("ix_invoices_sale_id", "sale_id"),
+        Index("ix_invoices_company_source", "company_id", "source_type", "source_id"),
+        Index(
+            "uq_invoices_active_cafe_source",
+            "company_id",
+            "source_type",
+            "source_id",
+            unique=True,
+            postgresql_where=text(
+                "source_type IS NOT NULL AND source_id IS NOT NULL AND status NOT IN ('cancelled', 'returned')"
+            ),
+            sqlite_where=text(
+                "source_type IS NOT NULL AND source_id IS NOT NULL AND status NOT IN ('cancelled', 'returned')"
+            ),
+        ),
         CheckConstraint("subtotal >= 0", name="invoices_subtotal_non_negative"),
         CheckConstraint("discount_total >= 0", name="invoices_discount_total_non_negative"),
         CheckConstraint("taxable_total >= 0", name="invoices_taxable_total_non_negative"),
@@ -129,7 +148,9 @@ class InvoiceItem(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id", ondelete="CASCADE"), nullable=False)
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
+    # Nullable only for Cafe prepared-food/menu items that intentionally do not
+    # represent a sellable inventory product. Retail items stay product-linked.
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     product_name_snapshot: Mapped[str] = mapped_column(String(200), nullable=False)
     sku_snapshot: Mapped[str] = mapped_column(String(64), nullable=False)
     hsn_sac_code: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -147,7 +168,7 @@ class InvoiceItem(Base):
     gross_profit: Mapped[Decimal] = mapped_column(Numeric(14, 2), nullable=False, default=Decimal("0.00"))
 
     invoice: Mapped[Invoice] = relationship(back_populates="items")
-    product: Mapped[Product] = relationship()
+    product: Mapped[Product | None] = relationship()
     taxes: Mapped[list[InvoiceTax]] = relationship(back_populates="invoice_item", cascade="all, delete-orphan")
 
     __table_args__ = (
