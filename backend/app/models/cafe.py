@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import enum
+import secrets
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -62,10 +63,15 @@ def enum_column(enum_cls: type[enum.Enum], name: str):
     )
 
 
+def _public_id() -> str:
+    return secrets.token_urlsafe(18)
+
+
 class MenuCategory(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "menu_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, default=_public_id)
     branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id"), nullable=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
@@ -74,6 +80,7 @@ class MenuCategory(CompanyScopeMixin, TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("company_id", "branch_id", "name", name="uq_menu_categories_company_branch_name"),
         Index("ix_menu_categories_company_id", "company_id"),
+        Index("ix_menu_categories_public_id", "public_id"),
         Index("ix_menu_categories_branch_id", "branch_id"),
         CheckConstraint("display_order >= 0", name="menu_categories_display_order_non_negative"),
     )
@@ -83,6 +90,7 @@ class MenuItem(CompanyScopeMixin, TimestampMixin, Base):
     __tablename__ = "menu_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, default=_public_id)
     branch_id: Mapped[int | None] = mapped_column(ForeignKey("branches.id"), nullable=True)
     category_id: Mapped[int] = mapped_column(ForeignKey("menu_categories.id"), nullable=False)
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
@@ -103,6 +111,7 @@ class MenuItem(CompanyScopeMixin, TimestampMixin, Base):
 
     __table_args__ = (
         Index("ix_menu_items_company_id", "company_id"),
+        Index("ix_menu_items_public_id", "public_id"),
         Index("ix_menu_items_branch_id", "branch_id"),
         Index("ix_menu_items_category_id", "category_id"),
         Index("ix_menu_items_product_id", "product_id"),
@@ -181,6 +190,7 @@ class TableSession(CompanyScopeMixin, TimestampMixin, Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
+    bill_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     closed_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")

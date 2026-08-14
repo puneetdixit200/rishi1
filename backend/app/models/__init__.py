@@ -30,6 +30,16 @@ from app.models.cafe import (
     TableSessionStatus,
     TableSessionType,
 )
+from app.models.cafe_order import (
+    CafeGuestAccess,
+    CafeOrder,
+    CafeOrderItem,
+    CafeOrderItemStatus,
+    CafeOrderSource,
+    CafeOrderStatus,
+    CafeOrderStatusHistory,
+    PublicRateLimitBucket,
+)
 from app.models.category import Category
 from app.models.chat import AIChatMessage, AIChatSession, ChatSender
 from app.models.customer import (
@@ -93,6 +103,13 @@ __all__ = [
     "BusinessGroup",
     "BusinessProfile",
     "BusinessType",
+    "CafeGuestAccess",
+    "CafeOrder",
+    "CafeOrderItem",
+    "CafeOrderItemStatus",
+    "CafeOrderSource",
+    "CafeOrderStatus",
+    "CafeOrderStatusHistory",
     "CafeTable",
     "Category",
     "ChatSender",
@@ -132,6 +149,7 @@ __all__ = [
     "ProductUnit",
     "PrintTemplate",
     "PrintTemplateType",
+    "PublicRateLimitBucket",
     "PurchaseOrder",
     "PurchaseOrderItem",
     "PurchaseOrderStatus",

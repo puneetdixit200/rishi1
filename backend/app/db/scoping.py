@@ -12,6 +12,10 @@ from app.models import (
     Branch,
     BusinessGroup,
     BusinessProfile,
+    CafeGuestAccess,
+    CafeOrder,
+    CafeOrderItem,
+    CafeOrderStatusHistory,
     CafeTable,
     Category,
     Company,
@@ -61,6 +65,10 @@ class ScopedSession(Session):
 COMPANY_MODELS = (
     Branch,
     BusinessProfile,
+    CafeGuestAccess,
+    CafeOrder,
+    CafeOrderItem,
+    CafeOrderStatusHistory,
     CafeTable,
     Category,
     Customer,
@@ -94,10 +102,14 @@ COMPANY_MODELS = (
 # MenuCategory/MenuItem are intentionally not in BRANCH_MODELS because branch_id
 # may be NULL to represent a company-wide Cafe menu policy. Their services apply
 # `(branch_id IS NULL OR branch_id IN allowed_branches)` explicitly. All table,
-# QR, and session rows are branch-owned and therefore use the generic branch
-# criteria below.
+# QR, session, guest-access, and Cafe order rows are branch-owned and therefore
+# use the generic branch criteria below.
 BRANCH_MODELS = (
     Branch,
+    CafeGuestAccess,
+    CafeOrder,
+    CafeOrderItem,
+    CafeOrderStatusHistory,
     CafeTable,
     Customer,
     CustomerLedgerEntry,
@@ -118,8 +130,8 @@ BRANCH_MODELS = (
 
 # Foreign-object relationships whose company ownership must match the active
 # venture on every create/update. Children that are reached only through a
-# scoped parent (for example InvoiceItem -> Invoice) are protected by the
-# parent's scoped lookup/transaction and are not duplicated here.
+# scoped parent are also listed for the Cafe order domain because P7 will write
+# them directly from staff workflows.
 REFERENCE_COMPANY_MODELS: dict[type[Any], tuple[tuple[str, type[Any]], ...]] = {
     Product: (("category_id", Category), ("supplier_id", Supplier)),
     ProductBarcode: (("product_id", Product),),
@@ -142,6 +154,10 @@ REFERENCE_COMPANY_MODELS: dict[type[Any], tuple[tuple[str, type[Any]], ...]] = {
     CafeTable: (("branch_id", Branch),),
     TableQRToken: (("branch_id", Branch), ("table_id", CafeTable)),
     TableSession: (("branch_id", Branch), ("table_id", CafeTable)),
+    CafeGuestAccess: (("branch_id", Branch), ("table_session_id", TableSession)),
+    CafeOrder: (("branch_id", Branch), ("table_session_id", TableSession), ("guest_access_id", CafeGuestAccess)),
+    CafeOrderItem: (("branch_id", Branch), ("cafe_order_id", CafeOrder), ("menu_item_id", MenuItem), ("product_id", Product)),
+    CafeOrderStatusHistory: (("branch_id", Branch), ("cafe_order_id", CafeOrder)),
 }
 
 
@@ -216,9 +232,9 @@ def _apply_read_scope(execute_state: ORMExecuteState) -> None:
 def _enforce_write_scope(session: ScopedSession, _flush_context: Any, _instances: Any) -> None:
     scope = current_scope(session)
     if scope is None:
-        # Migrations, deterministic seeds, and trusted maintenance scripts may use
-        # a session without request scope. Runtime API sessions bind scope during
-        # authentication before business writes occur.
+        # Migrations, deterministic seeds, public server-derived Cafe writes, and
+        # trusted maintenance scripts may use a session without request scope.
+        # Authenticated runtime APIs bind scope before business writes occur.
         return
 
     for obj in set(session.new).union(session.dirty):
