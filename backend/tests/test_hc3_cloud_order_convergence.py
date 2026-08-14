@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-from copy import deepcopy
-from decimal import Decimal
 from uuid import UUID
 
 import pytest
@@ -139,7 +137,7 @@ class DirectCloudTransport:
 
 
 def test_duplicate_customer_taps_and_worker_delivery_create_one_effect(
-    db_session_factory, hc3_cloud_factory
+    db_session_factory, seed_auth_data, hc3_cloud_factory
 ) -> None:
     ids, publication = _publish_local_fixture(db_session_factory, hc3_cloud_factory)
     first = _submit(hc3_cloud_factory, publication, ids)
@@ -154,6 +152,9 @@ def test_duplicate_customer_taps_and_worker_delivery_create_one_effect(
     assert one.status == "processed"
     assert two.duplicate is True
     with db_session_factory() as db:
+        order = db.scalar(select(CafeOrder))
+        assert order is not None
+        assert order.table_session_id == int(ids["table_session"])
         assert db.scalar(select(func.count(CafeOrder.id))) == 1
         assert db.scalar(select(func.count(CloudRecordLink.id))) == 1
         assert db.scalar(select(func.count(Invoice.id))) == 0
@@ -175,7 +176,9 @@ def test_duplicate_customer_taps_and_worker_delivery_create_one_effect(
         assert db.scalar(select(func.count()).select_from(sync_receipts)) == 1
 
 
-def test_local_rejection_mirrors_safe_cloud_status(db_session_factory, hc3_cloud_factory) -> None:
+def test_local_rejection_mirrors_safe_cloud_status(
+    db_session_factory, seed_auth_data, hc3_cloud_factory
+) -> None:
     ids, publication = _publish_local_fixture(db_session_factory, hc3_cloud_factory)
     cloud_order = _submit(hc3_cloud_factory, publication, ids, key="hc3-reject-001")
     event = _command_event(hc3_cloud_factory, cloud_order.public_id)
@@ -197,7 +200,9 @@ def test_local_rejection_mirrors_safe_cloud_status(db_session_factory, hc3_cloud
         assert status_value == "rejected"
 
 
-def test_local_outage_leaves_order_durable_until_later_import(db_session_factory, hc3_cloud_factory) -> None:
+def test_local_outage_leaves_order_durable_until_later_import(
+    db_session_factory, seed_auth_data, hc3_cloud_factory
+) -> None:
     ids, publication = _publish_local_fixture(db_session_factory, hc3_cloud_factory)
     cloud_order = _submit(hc3_cloud_factory, publication, ids, key="hc3-offline-001")
     with hc3_cloud_factory() as db:
@@ -206,14 +211,15 @@ def test_local_outage_leaves_order_durable_until_later_import(db_session_factory
     with db_session_factory() as db:
         assert db.scalar(select(func.count(CafeOrder.id))) == 0
 
-    # A later worker process receives the same durable command and imports it.
     event = _command_event(hc3_cloud_factory, cloud_order.public_id)
     consume_incoming_event(db_session_factory, event, make_cloud_order_handler(DEVICE_ID))
     with db_session_factory() as db:
         assert db.scalar(select(func.count(CafeOrder.id))) == 1
 
 
-def test_tampered_price_cross_venture_and_stale_qr_fail_closed(db_session_factory, hc3_cloud_factory) -> None:
+def test_tampered_price_cross_venture_and_stale_qr_fail_closed(
+    db_session_factory, seed_auth_data, hc3_cloud_factory
+) -> None:
     ids, publication = _publish_local_fixture(db_session_factory, hc3_cloud_factory)
 
     price_order = _submit(hc3_cloud_factory, publication, ids, key="hc3-price-001")
@@ -233,11 +239,12 @@ def test_tampered_price_cross_venture_and_stale_qr_fail_closed(db_session_factor
     with db_session_factory() as db:
         qr = db.scalar(select(TableQRToken).where(TableQRToken.public_reference == stale_event.payload["table_public_reference"]))
         assert qr is not None
-        qr.revoked_at = __import__("datetime").datetime.now(__import__("datetime").UTC)
+        from datetime import UTC, datetime
+
+        qr.revoked_at = datetime.now(UTC)
         db.commit()
     result = consume_incoming_event(db_session_factory, stale_event, make_cloud_order_handler(DEVICE_ID))
     assert result.status == "dead_letter"
     with db_session_factory() as db:
         assert db.scalar(select(func.count(CafeOrder.id))) == 0
-        inventory_before = db.scalar(select(func.coalesce(func.sum(Inventory.quantity_on_hand), 0)))
-        assert inventory_before is not None
+        assert db.scalar(select(func.coalesce(func.sum(Inventory.quantity_on_hand), 0))) is not None
