@@ -60,8 +60,10 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
 
 def include_cloud_gateway_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.cloud_gateway import router as cloud_gateway_router
+    from app.api.routes.hc3_cloud import router as hc3_cloud_router
 
     app.include_router(cloud_gateway_router, prefix=app_settings.api_prefix)
+    app.include_router(hc3_cloud_router, prefix=app_settings.api_prefix)
 
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
