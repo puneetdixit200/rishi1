@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -8,9 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_scope_context, require_roles
 from app.api.errors import raise_not_found
+from app.core.config import settings
 from app.core.scope import ScopeContext
 from app.db.session import get_db
-from app.models import SyncDeadLetter, User, UserRole
+from app.models import ContinuityMode, ContinuityState, SyncDeadLetter, User, UserRole
 from app.schemas.hc4 import (
     ContinuityStateRead,
     DeadLetterRead,
@@ -42,10 +44,32 @@ Operator = Annotated[
 ]
 
 
+def _apply_stale_state(state: ContinuityState) -> None:
+    if state.mode not in {
+        ContinuityMode.LIVE,
+        ContinuityMode.SYNCHRONIZING,
+        ContinuityMode.CLOUD_CONTINUITY,
+    }:
+        return
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(seconds=settings.continuity_stale_after_seconds)
+    heartbeat_stale = state.last_heartbeat_at is None or state.last_heartbeat_at < cutoff
+    lease_stale = state.lease_expires_at is not None and state.lease_expires_at <= now
+    if heartbeat_stale or lease_stale:
+        state.mode = ContinuityMode.STALE
+        state.stale_since = state.stale_since or now
+        state.attention_message = (
+            "Writer lease expired before continuity recovery completed."
+            if lease_stale
+            else "Local Hub heartbeat is stale."
+        )
+
+
 @router.get("/continuity", response_model=ContinuityStateRead)
 def continuity_state(db: Database, scope: Scope, _viewer: Viewer) -> ContinuityStateRead:
     state = state_for_scope(db, scope)
     refresh_state_metrics(db, state=state, metrics=queue_metrics(db, scope))
+    _apply_stale_state(state)
     db.commit()
     return continuity_state_read(state)
 
