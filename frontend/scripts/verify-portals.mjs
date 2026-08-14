@@ -10,6 +10,7 @@ const main = read("src/main.tsx");
 const portalRoot = read("src/PortalRoot.tsx");
 const routing = read("src/portalRouting.ts");
 const cafePortal = read("src/portals/CafePortal.tsx");
+const billingPage = read("src/pages/CafeBillingPage.tsx");
 const superPortal = read("src/portals/SuperAdminPortal.tsx");
 
 const assertions = [
@@ -20,10 +21,13 @@ const assertions = [
   [routing.includes('portal === "super-admin"') && routing.includes("return false"), "normal users must be blocked from Super Admin portal"],
   [routing.includes('user.company_business_type === "retail"'), "Retail portal access must derive from server venture type"],
   [routing.includes('role === "kitchen"') && routing.includes('["kitchen"]'), "Kitchen role must have preparation-only navigation"],
-  [routing.includes('role === "order_taker"') && routing.includes('["orders", "pos"]'), "P7 Order Taker must have Live Orders and New Order navigation"],
+  [routing.includes('role === "order_taker"') && routing.includes('["orders", "pos", "billing"]'), "P8 Order Taker must have Live Orders, New Order and Billing navigation"],
   [main.includes('window.location.pathname.startsWith("/order/")') && main.includes("<CustomerMenuEntry />"), "public QR route must remain separate from authenticated portals"],
-  [cafePortal.includes("CafeLiveOrdersPage") && cafePortal.includes("CafeNewOrderPage") && cafePortal.includes("CafeKitchenPage"), "P7 operational Cafe pages must be wired"],
-  [!cafePortal.includes('active === "billing"'), "P7 must not activate the later billing page"],
+  [cafePortal.includes("CafeLiveOrdersPage") && cafePortal.includes("CafeNewOrderPage") && cafePortal.includes("CafeKitchenPage"), "P7 operational Cafe pages must remain wired"],
+  [cafePortal.includes("CafeBillingPage") && cafePortal.includes('active === "billing"'), "P8 must activate the Cafe billing workspace"],
+  [billingPage.includes("Idempotency-Key") === false && billingPage.includes("checkoutKey"), "P8 UI must keep checkout idempotency state rather than expose a free-form key"],
+  [billingPage.includes("quoteCafeTableSession") && billingPage.includes("quoteCafeOrder"), "P8 billing totals must come from backend quote endpoints"],
+  [billingPage.includes("window.print()"), "P8 must provide a browser-printable receipt action"],
   [superPortal.includes("activeVentureStorage.set"), "Super Admin venture selector must set explicit backend venture scope"],
 ];
 
