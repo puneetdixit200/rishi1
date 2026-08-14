@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, get_scope_context
+from app.api.errors import raise_bad_request
 from app.core.scope import ScopeContext
 from app.db.session import get_db
 from app.models import CafeOrderSource, CafeOrderStatus, PreparationArea, User
@@ -16,7 +17,10 @@ from app.schemas.cafe_orders import (
     OrderVersionInput,
     StaffOrderCreate,
     StaffOrderRead,
+    TableSessionBillRequestInput,
+    TableSessionBillRequestRead,
 )
+from app.services.cafe_bill_request import request_table_session_bill
 from app.services.cafe_staff_orders import (
     create_staff_order,
     get_staff_order,
@@ -81,143 +85,58 @@ def read_order(
 
 
 @router.post("/orders/{public_id}/accept", response_model=StaffOrderRead)
-def accept_order(
-    public_id: str,
-    payload: OrderVersionInput,
-    request: Request,
-    user: CurrentUser,
-    scope: CurrentScope,
-    db: Database,
-) -> StaffOrderRead:
-    return transition_order(
-        db,
-        scope=scope,
-        user=user,
-        public_id=public_id,
-        expected_version=payload.expected_version,
-        target=CafeOrderStatus.ACCEPTED,
-        request=request,
-    )
+def accept_order(public_id: str, payload: OrderVersionInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.ACCEPTED, request=request)
 
 
 @router.post("/orders/{public_id}/reject", response_model=StaffOrderRead)
-def reject_order(
-    public_id: str,
-    payload: OrderReasonInput,
-    request: Request,
-    user: CurrentUser,
-    scope: CurrentScope,
-    db: Database,
-) -> StaffOrderRead:
-    return transition_order(
-        db,
-        scope=scope,
-        user=user,
-        public_id=public_id,
-        expected_version=payload.expected_version,
-        target=CafeOrderStatus.REJECTED,
-        reason=payload.reason,
-        request=request,
-    )
+def reject_order(public_id: str, payload: OrderReasonInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.REJECTED, reason=payload.reason, request=request)
 
 
 @router.post("/orders/{public_id}/start-preparing", response_model=StaffOrderRead)
-def start_preparing(
-    public_id: str,
-    payload: OrderVersionInput,
-    request: Request,
-    user: CurrentUser,
-    scope: CurrentScope,
-    db: Database,
-) -> StaffOrderRead:
-    return transition_order(
-        db,
-        scope=scope,
-        user=user,
-        public_id=public_id,
-        expected_version=payload.expected_version,
-        target=CafeOrderStatus.PREPARING,
-        request=request,
-    )
+def start_preparing(public_id: str, payload: OrderVersionInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.PREPARING, request=request)
 
 
 @router.post("/orders/{public_id}/mark-ready", response_model=StaffOrderRead)
-def mark_ready(
-    public_id: str,
-    payload: OrderVersionInput,
-    request: Request,
-    user: CurrentUser,
-    scope: CurrentScope,
-    db: Database,
-) -> StaffOrderRead:
-    return transition_order(
-        db,
-        scope=scope,
-        user=user,
-        public_id=public_id,
-        expected_version=payload.expected_version,
-        target=CafeOrderStatus.READY,
-        request=request,
-    )
+def mark_ready(public_id: str, payload: OrderVersionInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.READY, request=request)
 
 
 @router.post("/orders/{public_id}/serve", response_model=StaffOrderRead)
-def serve_order(
-    public_id: str,
-    payload: OrderVersionInput,
-    request: Request,
-    user: CurrentUser,
-    scope: CurrentScope,
-    db: Database,
-) -> StaffOrderRead:
-    return transition_order(
-        db,
-        scope=scope,
-        user=user,
-        public_id=public_id,
-        expected_version=payload.expected_version,
-        target=CafeOrderStatus.SERVED,
-        request=request,
-    )
+def serve_order(public_id: str, payload: OrderVersionInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.SERVED, request=request)
 
 
 @router.post("/orders/{public_id}/request-bill", response_model=StaffOrderRead)
-def request_order_bill(
-    public_id: str,
-    payload: OrderVersionInput,
-    request: Request,
-    user: CurrentUser,
-    scope: CurrentScope,
-    db: Database,
-) -> StaffOrderRead:
-    return transition_order(
-        db,
-        scope=scope,
-        user=user,
-        public_id=public_id,
-        expected_version=payload.expected_version,
-        target=CafeOrderStatus.BILL_REQUESTED,
-        request=request,
-    )
+def request_standalone_order_bill(public_id: str, payload: OrderVersionInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    current = get_staff_order(db, scope=scope, public_id=public_id)
+    if current.table_session_public_id is not None:
+        raise_bad_request("Dine-in billing intent must be requested for the table session.")
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.BILL_REQUESTED, request=request)
 
 
 @router.post("/orders/{public_id}/cancel", response_model=StaffOrderRead)
-def cancel_order(
+def cancel_order(public_id: str, payload: OrderReasonInput, request: Request, user: CurrentUser, scope: CurrentScope, db: Database) -> StaffOrderRead:
+    return transition_order(db, scope=scope, user=user, public_id=public_id, expected_version=payload.expected_version, target=CafeOrderStatus.CANCELLED, reason=payload.reason, request=request)
+
+
+@router.post("/table-sessions/{public_id}/request-bill", response_model=TableSessionBillRequestRead)
+def request_session_bill(
     public_id: str,
-    payload: OrderReasonInput,
+    payload: TableSessionBillRequestInput,
     request: Request,
     user: CurrentUser,
     scope: CurrentScope,
     db: Database,
-) -> StaffOrderRead:
-    return transition_order(
+) -> TableSessionBillRequestRead:
+    return request_table_session_bill(
         db,
         scope=scope,
         user=user,
-        public_id=public_id,
+        session_public_id=public_id,
         expected_version=payload.expected_version,
-        target=CafeOrderStatus.CANCELLED,
-        reason=payload.reason,
         request=request,
     )
 
@@ -231,10 +150,4 @@ def read_kitchen_queue(
     preparation_area: PreparationArea | None = None,
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[KitchenOrderRead]:
-    return list_kitchen_orders(
-        db,
-        scope=scope,
-        branch_id=branch_id,
-        preparation_area=preparation_area,
-        limit=limit,
-    )
+    return list_kitchen_orders(db, scope=scope, branch_id=branch_id, preparation_area=preparation_area, limit=limit)
