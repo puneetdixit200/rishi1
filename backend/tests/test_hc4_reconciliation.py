@@ -43,7 +43,7 @@ def test_clean_recovery_reconciliation_covers_billing_payment_stock_and_close(
     client,
     db_session_factory: sessionmaker[Session],
 ) -> None:
-    ids, _ = _bill_clean_table(client, db_session_factory)
+    _ids, _ = _bill_clean_table(client, db_session_factory)
     response = client.post("/api/sync/reconcile", headers=cafe_headers(client, "manager"))
     assert response.status_code == 200, response.text
     report = response.json()
@@ -65,7 +65,7 @@ def test_injected_financial_mismatch_is_visible_attention_required(
     client,
     db_session_factory: sessionmaker[Session],
 ) -> None:
-    ids, billed = _bill_clean_table(client, db_session_factory)
+    _ids, billed = _bill_clean_table(client, db_session_factory)
     invoice_id = billed["receipt"]["invoice_id"]
     with db_session_factory() as db:
         invoice = db.get(Invoice, invoice_id)
@@ -95,7 +95,7 @@ def test_dead_letter_is_visible_and_manual_retry_is_audited(
         event_type="hc4.permanent.failure",
         source=EventSource.LOCAL_HUB,
         source_device_id="hc4-device",
-        business_group_id=str(ids["business_group"]),
+        business_group_id="1",
         company_id=str(ids["cafe_company"]),
         branch_id=str(ids["cafe_branch"]),
         aggregate_type="hc4_test",
