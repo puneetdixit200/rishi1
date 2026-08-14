@@ -18,6 +18,7 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.cafe_orders import router as cafe_orders_router
     from app.api.routes.cafe_qr_render import router as cafe_qr_render_router
     from app.api.routes.categories import router as categories_router
+    from app.api.routes.continuity import router as continuity_router
     from app.api.routes.customers import router as customers_router
     from app.api.routes.dashboard import router as dashboard_router
     from app.api.routes.exports import router as exports_router
@@ -33,9 +34,6 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.tax_operation import router as tax_operation_router
     from app.api.routes.ventures import router as ventures_router
 
-    # Public ordering is registered before the legacy P5 QR preview route so the
-    # P6 contract owns the customer-facing resolve path. The legacy route is
-    # removed once its admin compatibility callers are migrated.
     for router in (
         public_cafe_router,
         auth_router,
@@ -45,6 +43,7 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
         cafe_router,
         cafe_qr_render_router,
         sync_status_router,
+        continuity_router,
         tax_operation_router,
         business_settings_router,
         categories_router,
@@ -67,9 +66,11 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
 def include_cloud_gateway_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.cloud_gateway import router as cloud_gateway_router
     from app.api.routes.hc3_cloud import router as hc3_cloud_router
+    from app.api.routes.hc4_cloud import router as hc4_cloud_router
 
     app.include_router(cloud_gateway_router, prefix=app_settings.api_prefix)
     app.include_router(hc3_cloud_router, prefix=app_settings.api_prefix)
+    app.include_router(hc4_cloud_router, prefix=app_settings.api_prefix)
 
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
