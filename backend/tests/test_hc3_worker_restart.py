@@ -9,6 +9,7 @@ from tests.test_hc3_cloud_order_convergence import (
     _command_event,
     _publish_local_fixture,
     _submit,
+    hc3_cloud_factory,
 )
 
 
