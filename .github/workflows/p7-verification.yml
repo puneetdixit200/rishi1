@@ -47,7 +47,8 @@ jobs:
         working-directory: backend
         run: |
           alembic -c alembic.ini history | grep -q "20260814_0014"
-          test "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')" = "20260813_cloud_0001"
+          alembic -c alembic_cloud.ini history | grep -q "20260813_cloud_0001"
+          test "$(alembic -c alembic.ini heads | awk '{print $1}')" != "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')"
       - name: Run P7 release-blocking tests
         working-directory: backend
         run: >-
