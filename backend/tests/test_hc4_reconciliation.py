@@ -1,12 +1,22 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.models import AuditLog, ContinuityReconciliationStatus, Invoice, SyncDeadLetter, SyncOutbox
+from app.models import (
+    AuditLog,
+    ContinuityMode,
+    ContinuityReconciliationStatus,
+    ContinuityState,
+    Invoice,
+    SyncDeadLetter,
+    SyncOutbox,
+)
 from app.schemas.sync import EventEnvelope, EventSource
+from app.services.continuity import scope_key
 from app.sync.service import PermanentSyncError, enqueue_outbox_event, process_outbox_batch
 from tests.p7_fixtures import cafe_headers
 from tests.p8_fixtures import create_mixed_served_table_orders, seed_p8
@@ -59,6 +69,42 @@ def test_clean_recovery_reconciliation_covers_billing_payment_stock_and_close(
     assert status.status_code == 200
     assert status.json()["continuity_mode"] == "live"
     assert status.json()["reconciliation_status"] == "clean"
+
+
+def test_stale_heartbeat_or_expired_lease_is_reported_visibly(
+    client,
+    db_session_factory: sessionmaker[Session],
+) -> None:
+    ids = seed_p8(db_session_factory)
+    key = scope_key(
+        business_group_id="1",
+        company_id=str(ids["cafe_company"]),
+        branch_id=str(ids["cafe_branch"]),
+    )
+    with db_session_factory() as db:
+        db.add(
+            ContinuityState(
+                scope_key=key,
+                business_group_id="1",
+                company_id=str(ids["cafe_company"]),
+                branch_id=str(ids["cafe_branch"]),
+                mode=ContinuityMode.LIVE,
+                fencing_epoch=4,
+                last_heartbeat_at=datetime.now(UTC) - timedelta(hours=1),
+                lease_expires_at=datetime.now(UTC) - timedelta(minutes=1),
+            )
+        )
+        db.commit()
+
+    headers = cafe_headers(client, "manager")
+    status = client.get("/api/sync/status", headers=headers)
+    assert status.status_code == 200, status.text
+    assert status.json()["continuity_mode"] == ContinuityMode.STALE.value
+    assert status.json()["attention_message"]
+
+    detail = client.get("/api/sync/continuity", headers=headers)
+    assert detail.status_code == 200, detail.text
+    assert detail.json()["mode"] == ContinuityMode.STALE.value
 
 
 def test_injected_financial_mismatch_is_visible_attention_required(
