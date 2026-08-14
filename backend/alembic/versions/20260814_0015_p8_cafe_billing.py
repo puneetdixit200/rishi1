@@ -16,6 +16,24 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+def _index_names(table_name: str) -> set[str]:
+    return {
+        str(index["name"])
+        for index in sa.inspect(op.get_bind()).get_indexes(table_name)
+        if index.get("name")
+    }
+
+
+def _create_index_if_missing(name: str, table_name: str, columns: list[str]) -> None:
+    if name not in _index_names(table_name):
+        op.create_index(name, table_name, columns, unique=False)
+
+
+def _drop_index_if_present(name: str, table_name: str) -> None:
+    if name in _index_names(table_name):
+        op.drop_index(name, table_name=table_name)
+
+
 def upgrade() -> None:
     op.add_column("invoices", sa.Column("source_type", sa.String(length=40), nullable=True))
     op.add_column("invoices", sa.Column("source_id", sa.String(length=64), nullable=True))
@@ -61,20 +79,26 @@ def upgrade() -> None:
     op.create_index(
         "ix_table_sessions_billed_invoice_id", "table_sessions", ["billed_invoice_id"], unique=False
     )
-    op.create_index(
-        "ix_cafe_orders_billed_invoice_id", "cafe_orders", ["billed_invoice_id"], unique=False
+
+    # Revision 0013 creates Cafe order tables from Base.metadata. On a fresh
+    # install it therefore sees today's model indexes, while an already-upgraded
+    # P7 database may not have them yet. Inspecting avoids duplicate-index DDL
+    # without skipping the indexes on real upgrades.
+    _create_index_if_missing(
+        "ix_cafe_orders_billed_invoice_id", "cafe_orders", ["billed_invoice_id"]
     )
-    op.create_index(
+    _create_index_if_missing(
         "ix_cafe_order_items_billed_invoice_item_id",
         "cafe_order_items",
         ["billed_invoice_item_id"],
-        unique=False,
     )
 
 
 def downgrade() -> None:
-    op.drop_index("ix_cafe_order_items_billed_invoice_item_id", table_name="cafe_order_items")
-    op.drop_index("ix_cafe_orders_billed_invoice_id", table_name="cafe_orders")
+    _drop_index_if_present(
+        "ix_cafe_order_items_billed_invoice_item_id", "cafe_order_items"
+    )
+    _drop_index_if_present("ix_cafe_orders_billed_invoice_id", "cafe_orders")
     op.drop_index("ix_table_sessions_billed_invoice_id", table_name="table_sessions")
     op.drop_constraint(
         "fk_table_sessions_billed_invoice_id_invoices", "table_sessions", type_="foreignkey"
