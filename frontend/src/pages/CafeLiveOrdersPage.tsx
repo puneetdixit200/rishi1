@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { getTableSession } from "../api/cafe";
 import {
   listCafeOrders,
   reasonCafeOrder,
+  requestTableSessionBill,
   transitionCafeOrder,
   type CafeOrder,
   type CafeOrderStatus,
@@ -20,9 +22,7 @@ function ageLabel(placedAt: string): string {
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof ApiError) {
-    return error.message;
-  }
+  if (error instanceof ApiError) return error.message;
   return "Cafe order operation failed.";
 }
 
@@ -70,10 +70,26 @@ export function CafeLiveOrdersPage() {
     [orders, sourceFilter, statusFilter],
   );
 
-  const act = async (order: CafeOrder, action: "accept" | "start-preparing" | "mark-ready" | "serve" | "request-bill") => {
+  const act = async (order: CafeOrder, action: "accept" | "start-preparing" | "mark-ready" | "serve") => {
     if (!token) return;
     try {
       await transitionCafeOrder(token, order.public_id, action, order.version);
+      await load();
+    } catch (actionError) {
+      setError(errorMessage(actionError));
+      await load();
+    }
+  };
+
+  const requestBill = async (order: CafeOrder) => {
+    if (!token) return;
+    try {
+      if (order.table_session_public_id) {
+        const session = await getTableSession(token, order.table_session_public_id);
+        await requestTableSessionBill(token, session.public_id, session.version);
+      } else {
+        await transitionCafeOrder(token, order.public_id, "request-bill", order.version);
+      }
       await load();
     } catch (actionError) {
       setError(errorMessage(actionError));
@@ -130,7 +146,7 @@ export function CafeLiveOrdersPage() {
                     {order.status === "accepted" ? <button type="button" onClick={() => void act(order, "start-preparing")}>Start preparing</button> : null}
                     {order.status === "preparing" ? <button type="button" onClick={() => void act(order, "mark-ready")}>Mark ready</button> : null}
                     {order.status === "ready" ? <button type="button" onClick={() => void act(order, "serve")}>Serve</button> : null}
-                    {order.status === "served" ? <button type="button" onClick={() => void act(order, "request-bill")}>Request bill</button> : null}
+                    {order.status === "served" ? <button type="button" onClick={() => void requestBill(order)}>Request bill</button> : null}
                     {["placed", "accepted", "preparing"].includes(order.status) && user?.server_role !== "analyst" ? <button type="button" className="danger-button" onClick={() => void reasonAction(order, "cancel")}>Cancel</button> : null}
                   </div>
                 </td>
