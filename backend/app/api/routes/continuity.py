@@ -94,6 +94,9 @@ def read_reconciliation(db: Database, scope: Scope, _viewer: Viewer) -> Reconcil
 def reconcile(db: Database, scope: Scope, operator: Operator) -> ReconciliationRead:
     state = state_for_scope(db, scope)
     report = run_reconciliation(db, scope=scope, created_by=operator.id, state=state)
+    if report.status.value == "clean" and state.last_heartbeat_at is None:
+        state.mode = ContinuityMode.OFFLINE_LOCAL
+        state.attention_message = None
     db.commit()
     return reconciliation_read(report)
 
