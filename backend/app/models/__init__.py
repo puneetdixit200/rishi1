@@ -42,6 +42,7 @@ from app.models.cafe_order import (
 )
 from app.models.category import Category
 from app.models.chat import AIChatMessage, AIChatSession, ChatSender
+from app.models.cloud_link import CloudRecordLink
 from app.models.customer import (
     Customer,
     CustomerAddress,
@@ -113,6 +114,7 @@ __all__ = [
     "CafeTable",
     "Category",
     "ChatSender",
+    "CloudRecordLink",
     "Company",
     "Customer",
     "CustomerAddress",
