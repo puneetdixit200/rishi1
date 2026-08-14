@@ -74,7 +74,17 @@ ROLE_PERMISSIONS: dict[UserRole, frozenset[str]] = {
             "purchases.read",
         }
     ),
-    UserRole.ORDER_TAKER: frozenset({"cafe.orders.read", "cafe.orders.write", "master.read"}),
+    UserRole.ORDER_TAKER: frozenset(
+        {
+            "cafe.orders.read",
+            "cafe.orders.write",
+            "cafe.billing.read",
+            "cafe.billing.write",
+            "billing.read",
+            "billing.write",
+            "master.read",
+        }
+    ),
     UserRole.KITCHEN: frozenset({"cafe.kitchen.read", "cafe.kitchen.write"}),
     UserRole.ANALYST: frozenset({"master.read", "reports.read", "ai.use"}),
 }
