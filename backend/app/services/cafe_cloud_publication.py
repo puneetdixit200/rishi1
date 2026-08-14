@@ -60,6 +60,7 @@ def build_cafe_publication(
         ).all()
     )
     category_ids = {row.id for row in categories}
+    category_public_ids = {row.id: row.public_id for row in categories}
     items = list(
         db.scalars(
             select(MenuItem)
@@ -141,7 +142,7 @@ def build_cafe_publication(
         snapshot_at=now,
         categories=[
             PublishedCategoryInput(
-                source_category_id=str(row.id),
+                source_category_id=row.public_id,
                 name=row.name,
                 display_order=row.display_order,
                 is_active=row.is_active,
@@ -150,9 +151,9 @@ def build_cafe_publication(
         ],
         items=[
             PublishedItemInput(
-                source_menu_item_id=str(row.id),
+                source_menu_item_id=row.public_id,
                 source_product_id=str(row.product_id) if row.product_id is not None else None,
-                source_category_id=str(row.category_id),
+                source_category_id=category_public_ids[row.category_id],
                 name=row.name,
                 description=row.description,
                 image_reference=row.image_reference,

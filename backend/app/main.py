@@ -27,6 +27,7 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.purchase_orders import router as purchase_orders_router
     from app.api.routes.sales import router as sales_router
     from app.api.routes.suppliers import router as suppliers_router
+    from app.api.routes.sync_status import router as sync_status_router
     from app.api.routes.tax_operation import router as tax_operation_router
     from app.api.routes.ventures import router as ventures_router
 
@@ -39,6 +40,7 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
         ventures_router,
         cafe_router,
         cafe_qr_render_router,
+        sync_status_router,
         tax_operation_router,
         business_settings_router,
         categories_router,
@@ -60,8 +62,10 @@ def include_local_hub_routes(app: FastAPI, app_settings: Settings) -> None:
 
 def include_cloud_gateway_routes(app: FastAPI, app_settings: Settings) -> None:
     from app.api.routes.cloud_gateway import router as cloud_gateway_router
+    from app.api.routes.hc3_cloud import router as hc3_cloud_router
 
     app.include_router(cloud_gateway_router, prefix=app_settings.api_prefix)
+    app.include_router(hc3_cloud_router, prefix=app_settings.api_prefix)
 
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:

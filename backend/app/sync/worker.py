@@ -4,13 +4,24 @@ import logging
 import signal
 import threading
 from dataclasses import dataclass
+from typing import Callable
 
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings, settings
 from app.db.session import SessionLocal
-from app.sync.device import DeviceIdentityStore
-from app.sync.service import BatchResult, SyncHandler, SyncTransport, process_inbox_batch, process_outbox_batch
+from app.services.cloud_transport import CloudGatewaySyncTransport, pull_cloud_commands
+from app.sync.cafe_orders import make_cloud_order_handler
+from app.sync.device import DeviceIdentityStore, SettingsCredentialStore
+from app.sync.service import (
+    BatchResult,
+    SyncHandler,
+    SyncProcessingError,
+    SyncTransport,
+    process_inbox_batch,
+    process_outbox_batch,
+    stage_inbox_event,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +33,7 @@ class WorkerCycleResult:
 
 
 class LocalSyncWorker:
-    """Small durable worker. Queue state lives in PostgreSQL; process memory is disposable."""
+    """Durable Local Hub worker. PostgreSQL owns all queue/checkpoint state."""
 
     def __init__(
         self,
@@ -37,6 +48,8 @@ class LocalSyncWorker:
         self.handlers = handlers or {}
         self.transport = transport
         self.device_store = DeviceIdentityStore(configured_settings)
+        self.credential_store = SettingsCredentialStore(configured_settings)
+        self._command_puller: Callable[[int], list] | None = None
         self._stop_event = threading.Event()
         self.device_id: str | None = None
 
@@ -45,12 +58,51 @@ class LocalSyncWorker:
             with db.begin():
                 identity = self.device_store.get_or_create(db)
                 self.device_id = identity.device_id
+
+        assert self.device_id is not None
+        self.handlers.setdefault("cafe.order.submitted", make_cloud_order_handler(self.device_id))
+        gateway = (self.settings.cloud_gateway_base_url or "").strip()
+        proof = self.credential_store.get_secret()
+        if gateway and proof:
+            if self.transport is None:
+                self.transport = CloudGatewaySyncTransport(
+                    gateway_base_url=gateway,
+                    device_id=self.device_id,
+                    installation_proof=proof,
+                )
+            if self._command_puller is None:
+                self._command_puller = lambda limit: pull_cloud_commands(
+                    gateway_base_url=gateway,
+                    device_id=self.device_id or "",
+                    installation_proof=proof,
+                    limit=limit,
+                )
         logger.info("Local sync worker initialized for device %s", self.device_id)
         return self.device_id
+
+    def _pull_and_stage_commands(self) -> int:
+        if self._command_puller is None:
+            return 0
+        try:
+            events = self._command_puller(self.settings.sync_batch_size)
+        except SyncProcessingError as exc:
+            logger.warning("Cloud command pull deferred: %s", exc)
+            return 0
+        if not events:
+            return 0
+        with self.session_factory() as db:
+            with db.begin():
+                for event in events:
+                    stage_inbox_event(db, event)
+        return len(events)
 
     def run_once(self) -> WorkerCycleResult:
         if self.device_id is None:
             self.initialize()
+
+        pulled = self._pull_and_stage_commands()
+        if pulled:
+            logger.info("Staged %s cloud synchronization command(s).", pulled)
 
         inbound = process_inbox_batch(
             self.session_factory,
@@ -63,7 +115,7 @@ class LocalSyncWorker:
         )
 
         if self.transport is None:
-            # HC1 intentionally has no cloud transport. Pending outbox rows stay durable and untouched.
+            # Without cloud configuration, durable local queues remain untouched.
             outbound = BatchResult()
         else:
             outbound = process_outbox_batch(
@@ -99,7 +151,6 @@ class LocalSyncWorker:
                         cycle.outbound,
                     )
             except Exception:
-                # Database/network outages must not destroy the supervisor process or queue state.
                 logger.exception("Synchronization cycle failed; committed queue state remains durable.")
             self._stop_event.wait(self.settings.sync_poll_interval_seconds)
         logger.info("Local sync worker stopped gracefully.")

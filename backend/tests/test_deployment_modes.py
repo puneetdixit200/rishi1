@@ -40,7 +40,7 @@ def test_local_hub_registers_existing_operational_routes() -> None:
     assert "/api/purchase-orders/{purchase_order_id}/receive" in paths
 
 
-def test_cloud_gateway_registers_only_approved_hc2_routes() -> None:
+def test_cloud_gateway_registers_only_approved_cloud_safe_routes() -> None:
     app = create_app(
         build_settings(
             deployment_mode=DeploymentMode.CLOUD_GATEWAY,
@@ -57,11 +57,18 @@ def test_cloud_gateway_registers_only_approved_hc2_routes() -> None:
         "/api/cloud/publications/menu",
         "/api/cloud/public/cafe/menu/{publication_id}",
         "/api/cloud/public/cafe/qr/resolve",
+        "/api/cloud/public/cafe/orders",
+        "/api/cloud/public/cafe/orders/{public_id}",
+        "/api/cloud/sync/commands",
+        "/api/cloud/sync/events",
+        "/api/cloud/sync/receipts",
     }
     assert "/api/auth/login" not in paths
     assert "/api/inventory/adjustments" not in paths
     assert "/api/invoices/{invoice_id}/issue" not in paths
     assert "/api/purchase-orders/{purchase_order_id}/receive" not in paths
+    assert "/api/public/cafe/sessions/{public_id}/orders" not in paths
+    assert not any(path.startswith("/api/auth") for path in paths)
 
 
 def test_cloud_gateway_requires_explicit_runtime_database() -> None:

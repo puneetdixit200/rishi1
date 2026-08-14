@@ -485,7 +485,11 @@ def _apply_inbox_record(
 
     event = _event_from_record(record)
     try:
-        result = handler(db, event) or {}
+        # Handler effects must either commit together with the inbox receipt or
+        # disappear completely. The savepoint lets the outer transaction retain
+        # the durable retry/dead-letter state after a handler failure.
+        with db.begin_nested():
+            result = handler(db, event) or {}
     except SyncProcessingError as error:
         _schedule_inbox_failure(
             db,

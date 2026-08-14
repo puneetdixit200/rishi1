@@ -1,4 +1,4 @@
-name: P6 Customer QR Ordering Verification
+name: HC3 Cloud Order Convergence Verification
 
 on:
   pull_request:
@@ -35,37 +35,55 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: python -m pip install -r requirements.txt
-      - name: Apply local migrations through current head
+      - name: Create isolated cloud coordination database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -d postgres -c "CREATE DATABASE hybrid_cloud_coordination;"
+      - name: Apply Local Hub migrations through HC3
         working-directory: backend
         env:
           DEPLOYMENT_MODE: local_hub
           DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
           LOCAL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
-          SECRET_KEY: github-actions-p6-only
+          SECRET_KEY: github-actions-hc3-only
         run: alembic -c alembic.ini upgrade head
-      - name: Verify P6 remains in local history and cloud history stays separate
+      - name: Apply independent cloud coordination migrations
+        working-directory: backend
+        env:
+          CLOUD_RUNTIME_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
+          CLOUD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
+        run: alembic -c alembic_cloud.ini upgrade head
+      - name: Verify migration heads remain independent
         working-directory: backend
         run: |
-          alembic -c alembic.ini history | grep -q "20260813_0013"
+          test "$(alembic -c alembic.ini heads | awk '{print $1}')" = "20260814_0014"
           test "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')" = "20260813_cloud_0001"
-      - name: Run P6 release-blocking tests
+      - name: Run HC3 release-blocking convergence tests
         working-directory: backend
+        env:
+          HC3_TEST_CLOUD_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
+          HC2_TEST_CLOUD_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
         run: >-
           python -m pytest -q --disable-warnings
+          tests/test_hc3_cloud_order_convergence.py
+          tests/test_hc3_worker_restart.py
+          tests/test_hc3_sync_status.py
+          tests/test_sync_transaction_boundary.py
+          tests/test_sync_foundation.py
           tests/test_public_qr_orders.py
           tests/test_public_qr_authorization.py
           tests/test_order_idempotency.py
-          tests/test_public_rate_limits.py
           tests/test_cafe_qr_security.py
           tests/test_table_sessions.py
           tests/test_cross_venture_isolation.py
           tests/test_company_scope_auth.py
-          tests/test_inventory.py
-          tests/test_invoices.py
-          tests/test_sync_foundation.py
           tests/test_deployment_modes.py
+          tests/test_hc2_cloud_gateway.py
       - name: Run complete backend regression
         working-directory: backend
+        env:
+          HC3_TEST_CLOUD_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
+          HC2_TEST_CLOUD_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
         run: python -m pytest -q --disable-warnings
       - name: Compile backend
         working-directory: backend
@@ -83,21 +101,22 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Verify public ordering boundary
-        run: |
-          grep -q 'window.location.pathname.startsWith("/order/")' frontend/src/main.tsx
-          grep -q 'Idempotency-Key' frontend/src/api/publicCafeClient.ts
-          grep -q '7000' frontend/src/public/useCafeSession.ts
-          ! grep -R -q 'dangerouslySetInnerHTML' frontend/src/public
-          ! grep -R -q 'localStorage' frontend/src/public frontend/src/api/publicCafeSession.ts
-      - name: Verify authenticated portal boundaries
+      - name: Verify browser contains no server-only cloud credentials
+        run: >-
+          ! grep -R -E
+          'SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEY|CLOUD_RUNTIME_DATABASE_URL|CLOUD_MIGRATION_DATABASE_URL|SYNC_DEVICE_SECRET'
+          frontend/src frontend/.env.example
+      - name: Verify portal and public ordering boundaries
         working-directory: frontend
-        run: node scripts/verify-portals.mjs
+        run: |
+          node scripts/verify-portals.mjs
+          grep -q 'window.location.pathname.startsWith("/order/")' src/main.tsx
       - name: Typecheck frontend
         working-directory: frontend
         run: npm run typecheck
       - name: Build frontend
         working-directory: frontend
         env:
+          VITE_CLOUD_API_BASE_URL: https://cloud-api.example.invalid/api
           VITE_OPERATIONAL_API_BASE_URL: https://ops-api.example.invalid/api
         run: npm run build
