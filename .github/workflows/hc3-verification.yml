@@ -68,6 +68,7 @@ jobs:
           tests/test_hc3_cloud_order_convergence.py
           tests/test_hc3_worker_restart.py
           tests/test_hc3_sync_status.py
+          tests/test_sync_transaction_boundary.py
           tests/test_sync_foundation.py
           tests/test_public_qr_orders.py
           tests/test_public_qr_authorization.py
