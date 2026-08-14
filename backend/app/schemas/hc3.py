@@ -86,3 +86,12 @@ class SyncStatusRead(BaseModel):
     last_inbound_sync_at: datetime | None
     last_outbound_sync_at: datetime | None
     local_device_last_seen_at: datetime | None
+    continuity_mode: str | None = None
+    fencing_epoch: int = 0
+    lease_expires_at: datetime | None = None
+    last_heartbeat_at: datetime | None = None
+    last_cloud_contact_at: datetime | None = None
+    last_reconciled_at: datetime | None = None
+    last_queue_drain_at: datetime | None = None
+    reconciliation_status: str | None = None
+    attention_message: str | None = None

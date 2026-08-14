@@ -4,7 +4,19 @@ import enum
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Enum as SAEnum, Index, Integer, JSON, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    DateTime,
+    Enum as SAEnum,
+    Index,
+    Integer,
+    JSON,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -39,6 +51,27 @@ class SyncDeadLetterStatus(str, enum.Enum):
     OPEN = "open"
     RETRY_PENDING = "retry_pending"
     RESOLVED = "resolved"
+
+
+class ContinuityMode(str, enum.Enum):
+    LIVE = "live"
+    OFFLINE_LOCAL = "offline_local"
+    CLOUD_CONTINUITY = "cloud_continuity"
+    SYNCHRONIZING = "synchronizing"
+    STALE = "stale"
+    ATTENTION_REQUIRED = "attention_required"
+
+
+class ContinuityReconciliationStatus(str, enum.Enum):
+    PENDING = "pending"
+    CLEAN = "clean"
+    ATTENTION_REQUIRED = "attention_required"
+
+
+class ContinuityTransactionStatus(str, enum.Enum):
+    PENDING_RECONCILIATION = "pending_reconciliation"
+    RECONCILED = "reconciled"
+    REJECTED = "rejected"
 
 
 def _enum_type(enum_cls: type[enum.Enum], name: str) -> SAEnum:
@@ -212,4 +245,107 @@ class SyncAggregateVersion(TimestampMixin, Base):
     __table_args__ = (
         UniqueConstraint("aggregate_type", "aggregate_id", name="uq_sync_aggregate_versions_aggregate"),
         Index("ix_sync_aggregate_versions_aggregate", "aggregate_type", "aggregate_id"),
+    )
+
+
+class ContinuityState(TimestampMixin, Base):
+    __tablename__ = "continuity_states"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope_key: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
+    business_group_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    company_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    branch_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    mode: Mapped[ContinuityMode] = mapped_column(
+        _enum_type(ContinuityMode, "continuity_mode"),
+        nullable=False,
+        default=ContinuityMode.SYNCHRONIZING,
+        server_default=ContinuityMode.SYNCHRONIZING.value,
+    )
+    fencing_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    lease_owner_device_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_cloud_contact_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    recovery_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_queue_drain_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    snapshot_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    stale_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    pending_inbox: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    pending_outbox: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    dead_letter_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    attention_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("ix_continuity_states_scope", "business_group_id", "company_id", "branch_id"),
+        Index("ix_continuity_states_mode", "mode"),
+    )
+
+
+class ContinuityReconciliation(TimestampMixin, Base):
+    __tablename__ = "continuity_reconciliations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    reconciliation_reference: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    scope_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    business_group_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    company_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    branch_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    fencing_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0, server_default="0")
+    status: Mapped[ContinuityReconciliationStatus] = mapped_column(
+        _enum_type(ContinuityReconciliationStatus, "continuity_reconciliation_status"),
+        nullable=False,
+        default=ContinuityReconciliationStatus.PENDING,
+        server_default=ContinuityReconciliationStatus.PENDING.value,
+    )
+    pending_inbox_before: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    pending_outbox_before: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    pending_inbox_after: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    pending_outbox_after: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    order_mismatch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    invoice_mismatch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    payment_mismatch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    stock_mismatch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    queue_receipt_mismatch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    closing_mismatch_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    dead_letter_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    __table_args__ = (
+        Index("ix_continuity_reconciliations_scope", "business_group_id", "company_id", "branch_id"),
+        Index("ix_continuity_reconciliations_status", "status", "created_at"),
+    )
+
+
+class ContinuityTransactionReceipt(TimestampMixin, Base):
+    __tablename__ = "continuity_transaction_receipts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    continuity_reference: Mapped[str] = mapped_column(String(36), nullable=False, unique=True)
+    scope_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    business_group_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    company_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    branch_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    purpose: Mapped[str] = mapped_column(String(80), nullable=False)
+    fencing_epoch: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[ContinuityTransactionStatus] = mapped_column(
+        _enum_type(ContinuityTransactionStatus, "continuity_transaction_status"),
+        nullable=False,
+        default=ContinuityTransactionStatus.PENDING_RECONCILIATION,
+        server_default=ContinuityTransactionStatus.PENDING_RECONCILIATION.value,
+    )
+    source_device_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    local_reference_type: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    local_reference_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    reconciled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+    __table_args__ = (
+        Index("ix_continuity_transaction_receipts_scope", "business_group_id", "company_id", "branch_id"),
+        Index("ix_continuity_transaction_receipts_status", "status"),
     )

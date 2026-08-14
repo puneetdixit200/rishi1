@@ -35,7 +35,7 @@ jobs:
       - name: Install backend dependencies
         working-directory: backend
         run: python -m pip install -r requirements.txt
-      - name: Apply Local Hub migrations through P8
+      - name: Apply Local Hub migrations through current head
         working-directory: backend
         env:
           DEPLOYMENT_MODE: local_hub
@@ -43,11 +43,12 @@ jobs:
           LOCAL_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_retail_bi
           SECRET_KEY: github-actions-p8-only
         run: alembic -c alembic.ini upgrade head
-      - name: Verify P8 local head and cloud history separation
+      - name: Verify P8 remains in history and migration histories stay separate
         working-directory: backend
         run: |
-          test "$(alembic -c alembic.ini heads | awk '{print $1}')" = "20260814_0015"
-          test "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')" = "20260813_cloud_0001"
+          alembic -c alembic.ini history | grep -q "20260814_0015"
+          alembic -c alembic_cloud.ini history | grep -q "20260813_cloud_0001"
+          test "$(alembic -c alembic.ini heads | awk '{print $1}')" != "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')"
       - name: Run P8 release-blocking tests
         working-directory: backend
         run: >-

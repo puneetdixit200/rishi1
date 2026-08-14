@@ -81,6 +81,12 @@ from app.models.purchase_order import (
 from app.models.sale import Sale, SaleItem
 from app.models.supplier import Supplier
 from app.models.sync import (
+    ContinuityMode,
+    ContinuityReconciliation,
+    ContinuityReconciliationStatus,
+    ContinuityState,
+    ContinuityTransactionReceipt,
+    ContinuityTransactionStatus,
     SyncAggregateVersion,
     SyncCheckpoint,
     SyncDeadLetter,
@@ -116,6 +122,12 @@ __all__ = [
     "ChatSender",
     "CloudRecordLink",
     "Company",
+    "ContinuityMode",
+    "ContinuityReconciliation",
+    "ContinuityReconciliationStatus",
+    "ContinuityState",
+    "ContinuityTransactionReceipt",
+    "ContinuityTransactionStatus",
     "Customer",
     "CustomerAddress",
     "CustomerAddressType",

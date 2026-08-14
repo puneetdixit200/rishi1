@@ -20,6 +20,9 @@ from app.models import (
     Category,
     CloudRecordLink,
     Company,
+    ContinuityReconciliation,
+    ContinuityState,
+    ContinuityTransactionReceipt,
     Customer,
     CustomerLedgerEntry,
     CustomerPayment,
@@ -42,6 +45,8 @@ from app.models import (
     SerialNumber,
     StockMovement,
     Supplier,
+    SyncInbox,
+    SyncOutbox,
     TableQRToken,
     TableSession,
     User,
@@ -99,6 +104,19 @@ COMPANY_MODELS = (
     TableSession,
     AIChatSession,
     AuditLog,
+)
+
+# Sync envelopes intentionally persist scope identifiers as strings because
+# their cross-boundary event contract is transport-neutral. HC4 continuity
+# state follows the same durable envelope scope. Authenticated writes to these
+# records therefore require explicit string-normalized scope comparison rather
+# than the integer comparison used by ordinary Local Hub business tables.
+STRING_SCOPED_INFRA_MODELS = (
+    SyncInbox,
+    SyncOutbox,
+    ContinuityState,
+    ContinuityReconciliation,
+    ContinuityTransactionReceipt,
 )
 
 # MenuCategory/MenuItem are intentionally not in BRANCH_MODELS because branch_id
@@ -231,6 +249,30 @@ def _apply_read_scope(execute_state: ORMExecuteState) -> None:
     execute_state.statement = statement
 
 
+def _enforce_string_scoped_infrastructure(obj: Any, scope: ScopeContext) -> None:
+    object_group = getattr(obj, "business_group_id", None)
+    if object_group is None:
+        setattr(obj, "business_group_id", str(scope.business_group_id))
+    elif str(object_group) != str(scope.business_group_id):
+        raise ScopeViolationError("Synchronization write attempted outside the authenticated business group.")
+
+    if scope.all_companies:
+        return
+    if scope.company_id is None:
+        raise ScopeViolationError("Authenticated user has no company scope.")
+
+    object_company = getattr(obj, "company_id", None)
+    if object_company is None:
+        setattr(obj, "company_id", str(scope.company_id))
+    elif str(object_company) != str(scope.company_id):
+        raise ScopeViolationError("Synchronization write attempted outside the authenticated company scope.")
+
+    if scope.branch_ids and hasattr(type(obj), "branch_id"):
+        branch_id = getattr(obj, "branch_id", None)
+        if branch_id is not None and str(branch_id) not in {str(value) for value in scope.branch_ids}:
+            raise ScopeViolationError("Synchronization write attempted outside the authenticated branch scope.")
+
+
 @event.listens_for(ScopedSession, "before_flush")
 def _enforce_write_scope(session: ScopedSession, _flush_context: Any, _instances: Any) -> None:
     scope = current_scope(session)
@@ -244,6 +286,10 @@ def _enforce_write_scope(session: ScopedSession, _flush_context: Any, _instances
         if isinstance(obj, User) and obj.role == UserRole.SUPER_ADMIN:
             if not scope.all_companies and obj.id != scope.user_id:
                 raise ScopeViolationError("Only Super Admin may create or modify a Super Admin account.")
+            continue
+
+        if isinstance(obj, STRING_SCOPED_INFRA_MODELS):
+            _enforce_string_scoped_infrastructure(obj, scope)
             continue
 
         if not scope.all_companies and hasattr(type(obj), "company_id"):

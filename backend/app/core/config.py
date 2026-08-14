@@ -38,11 +38,15 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-4.1-mini"
 
-    # Durable Local Hub synchronization and HC2 cloud coordination.
+    # Durable Local Hub synchronization and HC2-HC4 cloud coordination.
     sync_device_id: str | None = None
     sync_device_name: str = "Local Business Hub"
     sync_device_secret: SecretStr | None = None
     sync_device_credential_ref: str = "env:SYNC_DEVICE_SECRET"
+    sync_business_group_id: str | None = None
+    sync_company_id: str | None = None
+    sync_branch_id: str | None = None
+    sync_software_version: str = "0.1.0"
     sync_batch_size: int = Field(default=50, ge=1, le=500)
     sync_poll_interval_seconds: float = Field(default=5.0, ge=0.1, le=3600)
     sync_max_attempts: int = Field(default=8, ge=1, le=100)
@@ -51,6 +55,7 @@ class Settings(BaseSettings):
     sync_retry_jitter_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
     heartbeat_interval_seconds: int = Field(default=30, ge=5, le=3600)
     writer_lease_seconds: int = Field(default=90, ge=15, le=86400)
+    continuity_stale_after_seconds: int = Field(default=180, ge=30, le=86400)
 
     model_config = SettingsConfigDict(
         env_file=".env",
