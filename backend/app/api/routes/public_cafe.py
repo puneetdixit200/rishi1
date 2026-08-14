@@ -19,13 +19,13 @@ from app.services.public_cafe import (
     PUBLIC_READ_LIMIT,
     PUBLIC_RESOLVE_LIMIT,
     PUBLIC_WRITE_LIMIT,
-    create_public_order,
     enforce_public_rate_limit,
     get_public_menu,
     list_public_orders,
     request_public_bill,
 )
 from app.services.public_cafe_entry import resolve_qr_and_open_visit
+from app.services.public_cafe_ordering import create_public_order
 
 router = APIRouter(prefix="/public/cafe", tags=["public-cafe"])
 Database = Annotated[Session, Depends(get_db)]

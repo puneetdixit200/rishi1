@@ -6,6 +6,7 @@ export type TableSessionStatus = "open" | "bill_requested" | "billed" | "closed"
 
 export type MenuCategory = {
   id: number;
+  public_id: string;
   company_id: number;
   branch_id: number | null;
   name: string;
@@ -17,6 +18,7 @@ export type MenuCategory = {
 
 export type MenuItem = {
   id: number;
+  public_id: string;
   company_id: number;
   branch_id: number | null;
   category_id: number;
