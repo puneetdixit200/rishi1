@@ -46,12 +46,7 @@ def _require_scope_values(row, *, business_group_id: str, company_id: str | None
 
 
 def _require_scope(row, payload: MenuPublicationInput) -> None:
-    _require_scope_values(
-        row,
-        business_group_id=payload.business_group_id,
-        company_id=payload.company_id,
-        branch_id=payload.branch_id,
-    )
+    _require_scope_values(row, business_group_id=payload.business_group_id, company_id=payload.company_id, branch_id=payload.branch_id)
 
 
 def _canonical_payload_digest(payload: object) -> str:
@@ -106,9 +101,12 @@ def _lease_read(row) -> WriterLeaseRead | None:
     if row is None:
         return None
     return WriterLeaseRead(
-        scope_key=row["scope_key"], current_mode=row["current_mode"],
-        lease_owner_device_id=row["lease_owner_device_id"], fencing_epoch=int(row["fencing_epoch"]),
-        lease_expires_at=row["lease_expires_at"], last_heartbeat_at=row["last_heartbeat_at"],
+        scope_key=row["scope_key"],
+        current_mode=row["current_mode"],
+        lease_owner_device_id=row["lease_owner_device_id"],
+        fencing_epoch=int(row["fencing_epoch"]),
+        lease_expires_at=row["lease_expires_at"],
+        last_heartbeat_at=row["last_heartbeat_at"],
         recovery_state=row["recovery_state"],
     )
 
@@ -130,11 +128,15 @@ def heartbeat(
     db: Database,
     x_device_id: Annotated[str, Header(alias="X-Device-Id")],
     x_device_proof: Annotated[str, Header(alias="X-Device-Proof")],
-    x_device_timestamp: Annotated[str, Header(alias="X-Device-Timestamp")],
-    x_device_nonce: Annotated[str, Header(alias="X-Device-Nonce")],
-    x_device_signature: Annotated[str, Header(alias="X-Device-Signature")],
+    x_device_timestamp: Annotated[str | None, Header(alias="X-Device-Timestamp")] = None,
+    x_device_nonce: Annotated[str | None, Header(alias="X-Device-Nonce")] = None,
+    x_device_signature: Annotated[str | None, Header(alias="X-Device-Signature")] = None,
 ) -> SignedHeartbeatRead:
+    # Authenticate/revocation-check before signature-header validation so a
+    # revoked device still fails as unauthorized rather than as request-shape 422.
     device = _active_device(db, device_id=x_device_id, proof=x_device_proof, purpose="heartbeat")
+    if not x_device_timestamp or not x_device_nonce or not x_device_signature:
+        raise_unauthorized("Signed heartbeat headers are required.")
     _verify_signed_request(
         db,
         device=device,
@@ -147,10 +149,15 @@ def heartbeat(
     now = datetime.now(UTC)
     db.execute(
         insert(device_heartbeats).values(
-            device_id=device["device_id"], business_group_id=device["business_group_id"],
-            company_id=device["company_id"], branch_id=device["branch_id"], mode=payload.mode,
-            fencing_epoch=payload.fencing_epoch, software_version=payload.software_version,
-            event_schema_version=payload.event_schema_version, recorded_at=now,
+            device_id=device["device_id"],
+            business_group_id=device["business_group_id"],
+            company_id=device["company_id"],
+            branch_id=device["branch_id"],
+            mode=payload.mode,
+            fencing_epoch=payload.fencing_epoch,
+            software_version=payload.software_version,
+            event_schema_version=payload.event_schema_version,
+            recorded_at=now,
         )
     )
     db.execute(update(device_registrations).where(device_registrations.c.device_id == device["device_id"]).values(last_seen_at=now))
