@@ -53,12 +53,12 @@ jobs:
           CLOUD_RUNTIME_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
           CLOUD_MIGRATION_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/hybrid_cloud_coordination
         run: alembic -c alembic_cloud.ini upgrade head
-      - name: Verify HC2 remains in history and cloud head stays independent
+      - name: Verify HC2 remains in history and cloud history stays independent
         working-directory: backend
         run: |
           alembic -c alembic.ini history | grep -q "20260813_0011"
-          test "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')" = "20260813_cloud_0001"
-          alembic -c alembic.ini heads
+          alembic -c alembic_cloud.ini history | grep -q "20260813_cloud_0001"
+          test "$(alembic -c alembic.ini heads | awk '{print $1}')" != "$(alembic -c alembic_cloud.ini heads | awk '{print $1}')"
       - name: Run HC2 release-blocking tests
         working-directory: backend
         run: >-
