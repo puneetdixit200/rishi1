@@ -67,7 +67,7 @@ def test_clean_recovery_reconciliation_covers_billing_payment_stock_and_close(
 
     status = client.get("/api/sync/status", headers=cafe_headers(client, "manager"))
     assert status.status_code == 200
-    assert status.json()["continuity_mode"] == "live"
+    assert status.json()["continuity_mode"] == ContinuityMode.OFFLINE_LOCAL.value
     assert status.json()["reconciliation_status"] == "clean"
 
 
