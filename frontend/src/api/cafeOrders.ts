@@ -1,5 +1,5 @@
 import { apiRequest } from "./client";
-import type { PreparationArea, TableSessionType } from "./cafe";
+import type { PreparationArea, TableSessionStatus, TableSessionType } from "./cafe";
 
 export type CafeOrderStatus =
   | "placed"
@@ -84,6 +84,14 @@ export type OrderFilters = {
   unbilledOnly?: boolean;
 };
 
+export type TableSessionBillRequest = {
+  public_id: string;
+  status: TableSessionStatus;
+  bill_requested_at: string;
+  version: number;
+  affected_order_public_ids: string[];
+};
+
 export function listCafeOrders(token: string, filters: OrderFilters = {}): Promise<CafeOrder[]> {
   const params = new URLSearchParams();
   if (filters.branchId) params.set("branch_id", String(filters.branchId));
@@ -132,6 +140,14 @@ export function reasonCafeOrder(
   return apiRequest<CafeOrder>(
     `/cafe/orders/${publicId}/${action}`,
     { method: "POST", body: JSON.stringify({ expected_version: expectedVersion, reason }) },
+    token,
+  );
+}
+
+export function requestTableSessionBill(token: string, publicId: string, expectedVersion: number): Promise<TableSessionBillRequest> {
+  return apiRequest<TableSessionBillRequest>(
+    `/cafe/table-sessions/${publicId}/request-bill`,
+    { method: "POST", body: JSON.stringify({ expected_version: expectedVersion }) },
     token,
   );
 }
