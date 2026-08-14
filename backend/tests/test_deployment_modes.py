@@ -86,7 +86,9 @@ def test_cloud_database_cannot_identify_local_target() -> None:
 
 
 def test_local_runtime_preserves_legacy_url_and_allows_explicit_override() -> None:
-    legacy = Settings(database_url=LOCAL_URL, _env_file=None)
+    # Explicit None isolates the legacy fallback from any LOCAL_DATABASE_URL
+    # injected by the surrounding CI workflow.
+    legacy = Settings(database_url=LOCAL_URL, local_database_url=None, _env_file=None)
     explicit_url = "postgresql+psycopg://local_user@localhost:5432/explicit_local"
     explicit = Settings(
         database_url=LOCAL_URL,
