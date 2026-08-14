@@ -62,6 +62,9 @@ def test_cloud_gateway_registers_only_approved_cloud_safe_routes() -> None:
         "/api/cloud/sync/commands",
         "/api/cloud/sync/events",
         "/api/cloud/sync/receipts",
+        "/api/cloud/continuity/lease/acquire",
+        "/api/cloud/continuity/lease/renew",
+        "/api/cloud/continuity/references",
     }
     assert "/api/auth/login" not in paths
     assert "/api/inventory/adjustments" not in paths
