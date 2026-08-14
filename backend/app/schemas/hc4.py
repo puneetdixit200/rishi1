@@ -45,6 +45,9 @@ class SignedHeartbeatRead(BaseModel):
     accepted: bool
     device_id: str
     recorded_at: datetime
+    business_group_id: str
+    company_id: str | None = None
+    branch_id: str | None = None
     lease: WriterLeaseRead | None = None
 
 
