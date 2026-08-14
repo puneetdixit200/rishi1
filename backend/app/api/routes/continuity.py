@@ -44,6 +44,12 @@ Operator = Annotated[
 ]
 
 
+def _utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
 def _apply_stale_state(state: ContinuityState) -> None:
     if state.mode not in {
         ContinuityMode.LIVE,
@@ -53,8 +59,10 @@ def _apply_stale_state(state: ContinuityState) -> None:
         return
     now = datetime.now(UTC)
     cutoff = now - timedelta(seconds=settings.continuity_stale_after_seconds)
-    heartbeat_stale = state.last_heartbeat_at is None or state.last_heartbeat_at < cutoff
-    lease_stale = state.lease_expires_at is not None and state.lease_expires_at <= now
+    heartbeat = _utc(state.last_heartbeat_at)
+    lease_expiry = _utc(state.lease_expires_at)
+    heartbeat_stale = heartbeat is None or heartbeat < cutoff
+    lease_stale = lease_expiry is not None and lease_expiry <= now
     if heartbeat_stale or lease_stale:
         state.mode = ContinuityMode.STALE
         state.stale_since = state.stale_since or now
