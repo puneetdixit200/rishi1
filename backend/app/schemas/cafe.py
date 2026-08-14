@@ -33,6 +33,7 @@ class MenuCategoryUpdate(MenuCategoryCreate):
 
 class MenuCategoryRead(MenuCategoryCreate):
     id: int
+    public_id: str
     company_id: int
     created_at: datetime
     updated_at: datetime
@@ -75,6 +76,7 @@ class MenuItemAvailabilityUpdate(BaseModel):
 
 class MenuItemRead(MenuItemCreate):
     id: int
+    public_id: str
     company_id: int
     version: int
     created_at: datetime
@@ -189,6 +191,7 @@ class TableSessionRead(BaseModel):
     status: TableSessionStatus
     opened_by: int | None
     opened_at: datetime
+    bill_requested_at: datetime | None
     closed_by: int | None
     closed_at: datetime | None
     version: int
