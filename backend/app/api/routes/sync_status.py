@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -8,9 +8,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_scope_context, require_roles
+from app.core.config import settings
 from app.core.scope import ScopeContext
 from app.db.session import get_db
 from app.models import (
+    ContinuityMode,
     ContinuityState,
     SyncDeadLetter,
     SyncDeadLetterStatus,
@@ -52,6 +54,29 @@ def _dead_letter_in_scope(row: SyncDeadLetter, scope: ScopeContext) -> bool:
             return False
     if scope.branch_ids and str(envelope.get("branch_id")) not in {str(value) for value in scope.branch_ids}:
         return False
+    return True
+
+
+def _apply_stale_state(state: ContinuityState | None) -> bool:
+    if state is None or state.mode not in {
+        ContinuityMode.LIVE,
+        ContinuityMode.SYNCHRONIZING,
+        ContinuityMode.CLOUD_CONTINUITY,
+    }:
+        return False
+    now = datetime.now(UTC)
+    stale_cutoff = now - timedelta(seconds=settings.continuity_stale_after_seconds)
+    heartbeat_stale = state.last_heartbeat_at is None or state.last_heartbeat_at < stale_cutoff
+    lease_stale = state.lease_expires_at is not None and state.lease_expires_at <= now
+    if not heartbeat_stale and not lease_stale:
+        return False
+    state.mode = ContinuityMode.STALE
+    state.stale_since = state.stale_since or now
+    state.attention_message = (
+        "Writer lease expired before continuity recovery completed."
+        if lease_stale
+        else "Local Hub heartbeat is stale."
+    )
     return True
 
 
@@ -102,6 +127,8 @@ def sync_status(db: Database, scope: Scope, _viewer: SyncViewer) -> SyncStatusRe
     continuity = db.scalar(
         select(ContinuityState).where(ContinuityState.scope_key == scope_key_from_scope(scope))
     )
+    if _apply_stale_state(continuity):
+        db.commit()
     reconciliation = latest_reconciliation(db, scope)
     return SyncStatusRead(
         company_id=None if scope.all_companies else scope.company_id,
